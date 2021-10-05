@@ -1,4 +1,4 @@
-![github](https://img.shields.io/github/license/gufeijun/hgen)
+![github](https://img.shields.io/github/license/gufeijun/hgen) [![Build Status](https://app.travis-ci.com/gufeijun/hgen.svg?branch=master)](https://app.travis-ci.com/gufeijun/hgen)
 
 # 介绍
 
