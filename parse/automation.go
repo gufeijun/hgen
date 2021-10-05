@@ -22,29 +22,29 @@ const (
 
 /* following is our automaton
 --------------------------------------------------------------------------
-			|	 ""		| "service"	| "message"	|	 "}"	|	others	 |			description
+            |     ""    | "service" | "message" |    "}"    |   others   |       description
 --------------------------------------------------------------------------
-start		|   start	|in_service |in_message	|	bad 	|	bad		 |	0	should read next line
+start       |   start   |in_service |in_message |   bad     |   bad      |  0   should read next line
 --------------------------------------------------------------------------
-in_service	|read_method|	bad		|	bad		|	bad		|	bad		 |	1	read service name
+in_service  |read_method|   bad     |   bad     |   bad     |   bad      |  1   read service name
 --------------------------------------------------------------------------
-read_method	|read_method|	bad		|	bad		|	start	|in_retType	 |	2	ready to read a method
+read_method |read_method|   bad     |   bad     |   start   |in_retType  |  2   ready to read a method
 --------------------------------------------------------------------------
-in_retType	|	bad		|	bad		|	bad		|	bad		|method_name |	3	read return type of current method
+in_retType  |   bad     |   bad     |   bad     |   bad     |method_name |  3   read return type of current method
 --------------------------------------------------------------------------
-method_name	|	bad		|	bad		|	bad		|	bad		|in_acpType	 |	4	read method name
+method_name |   bad     |   bad     |   bad     |   bad     |in_acpType  |  4   read method name
 --------------------------------------------------------------------------
-in_acpType	|read_method|	bad		|	bad		|	bad		|in_acpType	 |	5	read parameters of current method
+in_acpType  |read_method|   bad     |   bad     |   bad     |in_acpType  |  5   read parameters of current method
 --------------------------------------------------------------------------
-in_message	|read_mem	|	bad		|	bad		|	bad		|	bad		 |	6	read message name
+in_message  |read_mem   |   bad     |   bad     |   bad     |   bad      |  6   read message name
 --------------------------------------------------------------------------
-read_mem	|read_mem	|	bad		|	bad		|	start	|msg_mem_typ |	7	ready to read members of current message
+read_mem    |read_mem   |   bad     |   bad     |   start   |msg_mem_typ |  7   ready to read members of current message
 --------------------------------------------------------------------------
-msg_mem_typ	|	bad		|	bad		|	bad		|	bad		|msg_mem_name|	8	read type of the member
+msg_mem_typ |   bad     |   bad     |   bad     |   bad     |msg_mem_name|  8   read type of the member
 --------------------------------------------------------------------------
-msg_mem_name|read_mem	|	bad		|	bad		|	bad		|	bad		 |	9	read name of the member
+msg_mem_name|read_mem   |   bad     |   bad     |   bad     |   bad      |  9   read name of the member
 --------------------------------------------------------------------------
-bad			|	bad		|	bad		|	bad		|	bad		|	bad		 |	10  error happens
+bad         |   bad     |   bad     |   bad     |   bad     |   bad      |  10  error happens
 --------------------------------------------------------------------------
 */
 
