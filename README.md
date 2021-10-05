@@ -1,3 +1,5 @@
+![github](https://img.shields.io/github/license/gufeijun/hgen)
+
 # 介绍
 
 hgen是分布式系统与中间件课程的大作业(自己开发一个rpc框架)的编译器部分。
