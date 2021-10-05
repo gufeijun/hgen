@@ -73,15 +73,15 @@ func (p *Parser) parse() (err error) {
 		if len(line) == 0 {
 			continue
 		}
-		for i := 0; i < len(line); i++ {
-			// we treat Parentheses and comma as white space to facilitate grammar analysis
-			if line[i] == '(' || line[i] == ')' || line[i] == ',' {
-				line[i] = ' '
-			}
-		}
 		index := bytes.Index(line, []byte(`//`))
 		if index != -1 {
 			line = line[:index]
+		}
+		for i := 0; i < len(line); i++ {
+			// we treat Parentheses and comma as white space to facilitate grammar analysis
+			if line[i] == '(' || line[i] == ')' || line[i] == ',' || line[i] == '\t' {
+				line[i] = ' '
+			}
 		}
 		if i, ok := isValidChars(line); !ok {
 			return fmt.Errorf("[line %d]invalid character: %c", p.curLine, line[i])
