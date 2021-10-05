@@ -129,7 +129,7 @@ func main() {
 }
 ```
 
-详细实现代码见[链接](https://github.com/gufeijun/rpch-go/examples/quickstart)。
+详细实现代码见[链接](https://github.com/gufeijun/rpch-go/tree/master/examples/quickstart)。
 
 ### 内置类型
 
@@ -193,7 +193,7 @@ func writeSomething(client *gfj.FileServiceClient) error {
 
 在客户端的代码中，客户端并无法感知我们读写的file是一个远在服务器上的文件。
 
-具体使用可以查看：[链接](https://github.com/gufeijun/rpch-go/examples/fileserver)。
+具体使用可以查看：[链接](https://github.com/gufeijun/rpch-go/tree/master/examples/fileserver)。
 
 ###  关键字
 
