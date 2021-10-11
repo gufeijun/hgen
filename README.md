@@ -107,7 +107,7 @@ func (*mathService) Add(a int32, b int32) (int32, error) {
 func startServer() {
 	svr := rpch.NewServer()
 	gfj.RegisterMathService(new(mathService), svr)
-	panic(svr.ListenAndServe("tcp", "127.0.0.1:8080"))
+	panic(svr.ListenAndServe("127.0.0.1:8080"))
 }
 
 func main() {
@@ -115,10 +115,11 @@ func main() {
 	time.Sleep(time.Second)
 
 	//客户端
-	conn, err := rpch.NewClient("127.0.0.1:8080")
+	conn, err := rpch.Dial("127.0.0.1:8080")
 	if err != nil {
 		panic(err)
 	}
+    defer conn.Close()
 	client := gfj.NewMathServiceClient(conn)
 	result, err := client.Add(2, 3)
 	if err != nil {
