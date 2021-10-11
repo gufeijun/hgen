@@ -74,18 +74,18 @@ func init() {
 
 const _clientStructTmpl = `
 type {{ . }}ServiceClient struct{
-    client *rpch.Client
+    conn *rpch.Conn
 }
 
-func New{{ . }}ServiceClient(client *rpch.Client) *{{ . }}ServiceClient {
+func New{{ . }}ServiceClient(conn *rpch.Conn) *{{ . }}ServiceClient {
     return &{{ . }}ServiceClient{
-		client: client,
+		conn: conn,
 	}
 }
 `
 const _clientMethodTmpl = `
 func (c *{{.ServiceName}}ServiceClient) {{ .MethodName }}({{.RequestArg}}) ({{.ResponseArg}}) {
-    resp, err := c.client.Call("{{.ServiceName}}", "{{.MethodName}}"{{ if ne (len .CallArgs) 0}},{{ end }}
+    resp, err := c.conn.Call("{{.ServiceName}}", "{{.MethodName}}"{{ if ne (len .CallArgs) 0}},{{ end }}
     {{- range $k,$v:=.CallArgs -}}
         {{- if ne $k 0 -}},{{ end }}
 		&rpch.RequestArg{
