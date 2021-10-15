@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"gufeijun/hustgen/config"
-	"gufeijun/hustgen/gen/cgen"
 	"gufeijun/hustgen/gen/gogen"
 	"os"
 	"path/filepath"
@@ -29,7 +28,6 @@ func (g *Generator) langHelp(lang string) error {
 func NewGenerator() *Generator {
 	return &Generator{
 		langs: map[string]func(*config.ComplileConfig) error{
-			"c":  cgen.Gen,
 			"go": gogen.Gen,
 		},
 	}
