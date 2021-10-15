@@ -8,7 +8,6 @@ import (
 	"gufeijun/hustgen/service"
 	"io"
 	"path"
-	"strings"
 )
 
 const (
@@ -17,16 +16,8 @@ const (
 	JSON = `"encoding/json"`
 )
 
-func genFilepath(srcIDL string, outdir string) string {
-	index := strings.Index(srcIDL, ".")
-	if index != -1 {
-		srcIDL = srcIDL[:index]
-	}
-	return path.Join(outdir, path.Base(srcIDL)+".rpch.go")
-}
-
 func Gen(conf *config.ComplileConfig) error {
-	te, err := utils.NewTmplExec(conf, genFilepath(conf.SrcIDL, conf.OutDir))
+	te, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, "rpch.go"))
 	if err != nil {
 		return err
 	}

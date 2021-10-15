@@ -4,6 +4,8 @@ import (
 	"gufeijun/hustgen/config"
 	"io"
 	"os"
+	"path"
+	"strings"
 	"text/template"
 )
 
@@ -51,4 +53,13 @@ func (ew *errWriter) Write(p []byte) (n int, err error) {
 	}
 	n, ew.te.Err = ew.Writer.Write(p)
 	return n, ew.te.Err
+}
+
+func GenFilePath(srcIDL string, outdir string, suffix string) string {
+	index := strings.Index(srcIDL, ".")
+	if index != -1 {
+		srcIDL = srcIDL[:index]
+	}
+	return path.Join(outdir, path.Base(srcIDL)+suffix)
+
 }
