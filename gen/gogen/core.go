@@ -4,12 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"gufeijun/hustgen/config"
+	"gufeijun/hustgen/gen/utils"
 	"gufeijun/hustgen/service"
 	"io"
-	"os"
 	"path"
 	"strings"
-	"text/template"
 )
 
 const (
@@ -17,25 +16,6 @@ const (
 	IO   = `"io"`
 	JSON = `"encoding/json"`
 )
-
-type asset struct {
-	conf *config.ComplileConfig
-	file io.Writer
-	err  error
-}
-
-type errWriter struct {
-	asset *asset
-	io.Writer
-}
-
-func (ew *errWriter) Write(p []byte) (n int, err error) {
-	if ew.asset.err != nil {
-		return 0, ew.asset.err
-	}
-	n, ew.asset.err = ew.Writer.Write(p)
-	return n, ew.asset.err
-}
 
 func genFilepath(srcIDL string, outdir string) string {
 	index := strings.Index(srcIDL, ".")
@@ -46,30 +26,21 @@ func genFilepath(srcIDL string, outdir string) string {
 }
 
 func Gen(conf *config.ComplileConfig) error {
-	file, err := os.OpenFile(genFilepath(conf.SrcIDL, conf.OutDir), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	te, err := utils.NewTmplExec(conf, genFilepath(conf.SrcIDL, conf.OutDir))
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	asset := &asset{
-		conf: conf,
-	}
-	asset.file = &errWriter{Writer: file, asset: asset}
-	return asset.gen()
-}
-
-func (asset *asset) gen() error {
-	asset.genStatement()
-	asset.genPackage()
-	asset.genImports()
-	asset.genMessages()
-	asset.genServiceInterfaces()
-	asset.genServiceRegisterFunc()
-	asset.genInit()
-	asset.genClientStruct()
-	asset.genClientMethods()
-
-	return asset.err
+	defer te.Close()
+	genStatement(te)
+	genPackage(te)
+	genImports(te)
+	genMessages(te)
+	genServiceInterfaces(te)
+	genServiceRegisterFunc(te)
+	genInit(te)
+	genClientStruct(te)
+	genClientMethods(te)
+	return te.Err
 }
 
 type CallArg struct {
@@ -78,17 +49,17 @@ type CallArg struct {
 	Data     string
 }
 
-func (asset *asset) genStatement() {
-	asset.execute(statementTmpl, struct {
+func genStatement(te *utils.TmplExec) {
+	te.Execute(statementTmpl, struct {
 		Version string
 		Source  string
 	}{
 		Version: config.Version,
-		Source:  path.Base(asset.conf.SrcIDL),
+		Source:  path.Base(te.Conf.SrcIDL),
 	})
 }
 
-func (asset *asset) genClientMethods() {
+func genClientMethods(te *utils.TmplExec) {
 	for _, s := range service.GlobalAsset.Services {
 		for _, method := range s.Methods {
 			data := &struct {
@@ -106,18 +77,18 @@ func (asset *asset) genClientMethods() {
 				Return:      buildReturn(method.RetType),
 				CallArgs:    buildCallArgs(method.ReqTypes),
 			}
-			asset.execute(clientMethodTmpl, data)
+			te.Execute(clientMethodTmpl, data)
 		}
 	}
 }
 
-func (asset *asset) genClientStruct() {
+func genClientStruct(te *utils.TmplExec) {
 	for _, s := range service.GlobalAsset.Services {
-		asset.execute(clientStructTmpl, s.Name)
+		te.Execute(clientStructTmpl, s.Name)
 	}
 }
 
-func (asset *asset) genInit() {
+func genInit(te *utils.TmplExec) {
 	messages := service.GlobalAsset.Messages
 	if len(messages) == 0 {
 		return
@@ -126,10 +97,10 @@ func (asset *asset) genInit() {
 	for _, m := range messages {
 		msgs = append(msgs, m.Name)
 	}
-	asset.execute(initTmpl, msgs)
+	te.Execute(initTmpl, msgs)
 }
 
-func (asset *asset) genServiceRegisterFunc() {
+func genServiceRegisterFunc(te *utils.TmplExec) {
 	type MethodDesc struct {
 		MethodName  string
 		RetTypeName string
@@ -150,11 +121,11 @@ func (asset *asset) genServiceRegisterFunc() {
 			Name:        s.Name,
 			MethodDescs: descs,
 		}
-		asset.execute(serviceRegisterTmpl, data)
+		te.Execute(serviceRegisterTmpl, data)
 	}
 }
 
-func (asset *asset) genServiceInterfaces() {
+func genServiceInterfaces(te *utils.TmplExec) {
 	for _, s := range service.GlobalAsset.Services {
 		var methods []string
 		for _, method := range s.Methods {
@@ -167,25 +138,25 @@ func (asset *asset) genServiceInterfaces() {
 			Name:    s.Name,
 			Methods: methods,
 		}
-		asset.execute(serviceInterfaceTmpl, data)
+		te.Execute(serviceInterfaceTmpl, data)
 	}
 }
 
-func (asset *asset) genPackage() {
-	packageName := path.Base(asset.conf.OutDir)
+func genPackage(te *utils.TmplExec) {
+	packageName := path.Base(te.Conf.OutDir)
 	if packageName == "/" {
-		asset.err = errors.New("outDir can not be /")
+		te.Err = errors.New("outDir can not be /")
 	}
-	io.WriteString(asset.file, fmt.Sprintf("package %s\n", packageName))
+	io.WriteString(te.W, fmt.Sprintf("package %s\n", packageName))
 }
 
-func (asset *asset) genMessages() {
+func genMessages(te *utils.TmplExec) {
 	for _, message := range service.GlobalAsset.Messages {
-		asset.execute(structTmpl, message)
+		te.Execute(structTmpl, message)
 	}
 }
 
-func (asset *asset) genImports() {
+func genImports(te *utils.TmplExec) {
 	if len(service.GlobalAsset.Services) == 0 {
 		return
 	}
@@ -210,7 +181,7 @@ func (asset *asset) genImports() {
 		imports = append(imports, JSON)
 	}
 	imports = append(imports, RPCH)
-	asset.execute(importTmpl, imports)
+	te.Execute(importTmpl, imports)
 }
 
 func traverseMethod(callback func(method *service.Method) (end bool)) {
@@ -220,14 +191,5 @@ func traverseMethod(callback func(method *service.Method) (end bool)) {
 				return
 			}
 		}
-	}
-}
-
-func (asset *asset) execute(tmpl *template.Template, data interface{}) {
-	if asset.err != nil {
-		return
-	}
-	if err := tmpl.Execute(asset.file, data); err != nil {
-		asset.err = err
 	}
 }
