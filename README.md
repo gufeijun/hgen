@@ -136,7 +136,7 @@ func main() {
 
 ### 内置类型
 
-IDL内置了丰富的基本类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、string、void、stream、istream、ostream。
+IDL内置了丰富的基本类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float32、float64、string、void、stream、istream、ostream。
 
 大部分类型比较好理解，主要讲讲几个特殊的类型。
 

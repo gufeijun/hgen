@@ -17,7 +17,7 @@ const (
 )
 
 func Gen(conf *config.ComplileConfig) error {
-	te, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, "rpch.go"))
+	te, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.go"))
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func genImports(te *utils.TmplExec) {
 	}
 	var addIO bool
 	var addJson bool
-	traverseMethod(func(method *service.Method) bool {
+	utils.TraverseMethod(func(method *service.Method) bool {
 		if method.RetType.TypeKind == service.TypeKindMessage {
 			addJson = true
 		}
@@ -173,14 +173,4 @@ func genImports(te *utils.TmplExec) {
 	}
 	imports = append(imports, RPCH)
 	te.Execute(importTmpl, imports)
-}
-
-func traverseMethod(callback func(method *service.Method) (end bool)) {
-	for _, s := range service.GlobalAsset.Services {
-		for _, method := range s.Methods {
-			if end := callback(method); end {
-				return
-			}
-		}
-	}
 }

@@ -1,6 +1,6 @@
 package config
 
-var Version string = "v0.1.3"
+var Version string = "v0.1.4"
 
 type ComplileConfig struct {
 	TargetLang   string
