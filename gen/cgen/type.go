@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var toCType = map[string]string{
+var IDLtoCType = map[string]string{
 	"int8":    "int8_t",
 	"int16":   "int16_t",
 	"int32":   "int32_t",
@@ -23,7 +23,7 @@ var toCType = map[string]string{
 func toClangType(t *service.Type) string {
 	switch t.TypeKind {
 	case service.TypeKindNormal:
-		return toCType[t.TypeName]
+		return IDLtoCType[t.TypeName]
 	case service.TypeKindMessage:
 		return fmt.Sprintf("struct %s*", t.TypeName)
 	default:

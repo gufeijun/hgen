@@ -11,6 +11,8 @@ var (
 	sourceFileIncludesTmpl     = must(_sourceFileIncludesTmpl)
 	registerServiceTmpl        = must(_registerServiceTmpl)
 	argumentInitAndDestroyTmpl = must(_argumentInitAndDestroyTmpl)
+	marshalFuncTmpl            = must(_marshalFuncTmpl)
+	unmarshalFuncTmpl          = must(_unmarshalFuncTmpl)
 	handlerTmpl                = must(_handlerTmpl)
 )
 
@@ -68,7 +70,7 @@ const _sourceFileIncludesTmpl = `#include "{{.Header}}"
 const _registerServiceTmpl = `
 
 {{ $name:=.Name -}}
-void register_{{.Name}}_service(server_t* svr){
+void register_{{.Name}}_service(server_t* svr) {
 	{{- range .Methods }}
 	server_register(svr, "{{$name}}.{{.MethodName}}", {{$name}}_{{.MethodName}}_handler);
 	{{- end }}
@@ -76,9 +78,8 @@ void register_{{.Name}}_service(server_t* svr){
 
 const _argumentInitAndDestroyTmpl = `
 void {{.Name}}_init(struct {{.Name}}* data)
-{{- if eq (len .MessageMems) 0 -}} {}
-{{- else -}}
-{
+{{- if eq (len .MessageMems) 0 }} {}
+{{- else }} {
 	{{- range .MessageMems}}
 	data->{{.MemName}} = malloc(sizeof(struct {{.MemType.TypeName}}));
 	{{.MemType.TypeName}}_init(data->{{.MemName}});
@@ -86,14 +87,74 @@ void {{.Name}}_init(struct {{.Name}}* data)
 }
 {{- end }}
 void {{.Name}}_destroy(struct {{.Name}}* data)
-{{- if eq (len .MessageMems) 0 -}} {}
-{{- else -}}
-{
+{{- if eq (len .MessageMems) 0 }} {}
+{{- else }} {
 	{{- range .MessageMems}}
 	{{.MemType.TypeName}}_destroy(data->{{.MemName}});
 	{{- end }}
 }
 {{- end -}}
+`
+
+const _marshalFuncTmpl = `
+cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
+	cJSON* root = NULL;
+	{{ if .MessageMem -}}
+	cJSON* item = NULL;
+	{{ end }}
+    root = cJSON_CreateObject();
+    if (!root) goto bad;
+	{{- range .Message.Mems -}}
+	{{- if eq .MemType.TypeKind 2 }}
+	item = {{ .MemType.TypeName }}_marshal(data->{{.MemName}}, err);
+	if (!err->null) goto bad;
+    if (cJSON_AddItemToObject(root, "{{ .MemName }}", item) == NULL) goto bad;
+	{{- else if eq .MemType.TypeName "string" }}
+    if (cJSON_AddStringToObject(root, "{{ .MemName }}", data->{{.MemName}}) == NULL) goto bad;
+	{{- else }}
+    if (cJSON_AddNumberToObject(root, "{{ .MemName }}", (double)data->{{.MemName}}) == NULL) goto bad;
+	{{- end }}
+	{{- end }}
+	return root;
+bad:
+	if (!err->null) error_put(err, "marshal struct {{.TypeName}} failed");
+    if (root) cJSON_Delete(root);
+	return NULL;
+}
+`
+
+const _unmarshalFuncTmpl = `
+void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err) {
+    cJSON* root = NULL;
+    cJSON* item = NULL;
+
+    root = cJSON_Parse(data);
+    if (!root) goto bad;
+	{{- $map:=.IDL2CType -}}
+	{{ range .Message.Mems }}
+    item = cJSON_GetObjectItemCaseSensitive(root, "{{ .MemName }}");
+	{{- if eq .MemType.TypeKind 2 }}
+    if (!item || !cJSON_IsObject(item)) goto bad;
+    data = cJSON_Print(item);
+	{{.MemType.TypeName}}_unmarshal(dst->{{.MemName}}, data, err);
+	if (!err->null) goto bad;
+	{{- else if eq .MemType.TypeName "string" }}
+	if (!item || !cJSON_IsString(item)) goto bad;
+	dst->{{.MemName}} = strdup(item->string);
+	{{- else if or (eq .MemType.TypeName "float32") (eq .MemType.TypeName "float64")}}
+	if (!item || !cJSON_IsNumber(item)) goto bad;
+	dst->{{.MemName}} = ({{index $map .MemType.TypeName}})item->valuedouble;
+	{{- else }}
+	if (!item || !cJSON_IsNumber(item)) goto bad;
+	dst->{{.MemName}} = ({{index $map .MemType.TypeName}})item->valueint;
+	{{- end }}
+	{{- end }}
+    cJSON_Delete(root);
+    return;
+bad:
+    if (!err->null) error_put(err, "unmarshal struct {{.TypeName}} failed");
+    if (root) cJSON_Delete(root);
+}
 `
 
 const _handlerTmpl = `

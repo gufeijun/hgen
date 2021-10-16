@@ -6,6 +6,7 @@ import (
 	"gufeijun/hustgen/gen/utils"
 	"gufeijun/hustgen/service"
 	"path"
+	"text/template"
 )
 
 func genHeaderFile(conf *config.ComplileConfig) error {
@@ -30,6 +31,8 @@ func genSourceFile(conf *config.ComplileConfig) error {
 	genStatement(cte)
 	genSourceFileIncludes(cte)
 	genArgumentInitAndDestroy(cte)
+	genMashalFunc(cte)
+	genUnmarshalFunc(cte)
 	//TODO
 	genHandlers(cte)
 	genRegisterService(cte)
@@ -49,6 +52,41 @@ func genHandlers(te *utils.TmplExec) {
 
 		return
 	})
+}
+
+func common(te *utils.TmplExec, tmpl *template.Template) {
+	for _, message := range service.GlobalAsset.Messages {
+		data := &struct {
+			TypeName   string
+			Message    *service.Message
+			MessageMem bool
+			IDL2CType  map[string]string
+		}{TypeName: message.Name, Message: message, IDL2CType: IDLtoCType}
+		for _, mem := range message.Mems {
+			if mem.MemType.TypeKind == service.TypeKindMessage {
+				data.MessageMem = true
+				break
+			}
+		}
+		te.Execute(tmpl, data)
+	}
+}
+
+func genUnmarshalFunc(te *utils.TmplExec) {
+	for _, message := range service.GlobalAsset.Messages {
+		fmt.Fprintf(te.W, "static void %s_unmarshal(struct %s* dst, char* data, error_t* err);\n",
+			message.Name, message.Name)
+	}
+	common(te, unmarshalFuncTmpl)
+}
+
+func genMashalFunc(te *utils.TmplExec) {
+	fmt.Fprint(te.W, "\n\n")
+	for _, message := range service.GlobalAsset.Messages {
+		fmt.Fprintf(te.W, "static cJSON* %s_marshal(struct %s* arg, error_t* err);\n",
+			message.Name, message.Name)
+	}
+	common(te, marshalFuncTmpl)
 }
 
 func genRegisterService(te *utils.TmplExec) {
@@ -84,7 +122,7 @@ func genSourceFileIncludes(te *utils.TmplExec) {
 		Header   string
 		Stdlib   []string
 		Includes []string
-	}{Stdlib: []string{"stdint.h", "stdlib.h"},
+	}{Stdlib: []string{"stdint.h", "stdlib.h", "string.h"},
 		Includes: []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}}
 	data.Header = path.Base(utils.GenFilePath(te.Conf.SrcIDL, te.Conf.OutDir, ".rpch.h"))
 	te.Execute(sourceFileIncludesTmpl, data)
