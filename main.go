@@ -33,7 +33,7 @@ func main() {
 
 func parseConfig() *config.ComplileConfig {
 	printVersion := flag.Bool("version", false, "print program build version")
-	lang := flag.String("lang", "go", "the target languege the IDL will be compliled to")
+	lang := flag.String("lang", "c", "the target languege the IDL will be compliled to")
 	dir := flag.String("dir", "gfj", "the dirpath where the generated source code files will be placed")
 	flag.Parse()
 	return &config.ComplileConfig{

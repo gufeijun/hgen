@@ -99,6 +99,7 @@ void {{.Name}}_destroy(struct {{.Name}}* data)
 const _marshalFuncTmpl = `
 cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
 	cJSON* root = NULL;
+	if (data == NULL) goto bad;
 	{{ if .MessageMem -}}
 	cJSON* item = NULL;
 	{{ end }}
@@ -117,7 +118,7 @@ cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
 	{{- end }}
 	return root;
 bad:
-	if (!err->null) error_put(err, "marshal struct {{.TypeName}} failed");
+	if (!err->null) MARSHAL_FAILED("{{.TypeName}}")
     if (root) cJSON_Delete(root);
 	return NULL;
 }
@@ -152,11 +153,63 @@ void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err
     cJSON_Delete(root);
     return;
 bad:
-    if (!err->null) error_put(err, "unmarshal struct {{.TypeName}} failed");
+    if (!err->null) UNMARSHAL_FAILED("{{.TypeName}}");
     if (root) cJSON_Delete(root);
 }
 `
 
 const _handlerTmpl = `
+void {{.FuncName}}_handler(request_t* req, error_t* err, struct argument* resp) {
+	{{- range .Defines }}
+	{{.}}
+	{{- end }}
+	{{- if .MessageResp }}
+	cJSON* root = NULL;
+	{{- end }}
 
+	{{ .ArgChecks }}
+	{{- range .ArgInits }}
+	{{.}}
+	{{- end }}
+	{{- range .ArgUnmarshals }}
+	{{.}}
+	{{- end }}
+
+	res = {{.FuncName}}({{.CallArgs}});
+	if (!err->null) goto end;
+	{{.Resp}}
+end:{{.End}}
+	return;
+}
 `
+
+const macro = `
+#define invalid_argcnt(err, want, got) \
+    errorf(err, "expected count of arugments is %d, but got %d", want, got)
+#define invalid_type(err, want, got) \
+    errorf(err, "expected argument type: %s, but got %s", want, got)
+#define invalid_type_size(err, t, want, got) \
+    errorf(err, "expected size for type %s is %d, but got %d", t, want, got)
+#define CHECK_ARG_CNT(want, got)                   \
+    {                                              \
+        if (got != want) {                         \
+            invalid_argcnt(err, got, req->argcnt); \
+            return;                                \
+        }                                          \
+    }
+#define CHECK_ARG_TYPE(want, got)         \
+    {                                     \
+        if (strcmp(want, got) != 0) {     \
+            invalid_type(err, want, got); \
+            return;                       \
+        }                                 \
+    }
+#define CHECK_ARG_SIZE(t, want, got)              \
+    {                                             \
+        if (want != got) {                        \
+            invalid_type_size(err, t, want, got); \
+            return;                               \
+        }                                         \
+    }
+#define MARSHAL_FAILED(obj) error_put(err, "marshal struct " obj " failed");
+#define UNMARSHAL_FAILED(obj) error_put(err, "unmarshal struct " obj " failed")`

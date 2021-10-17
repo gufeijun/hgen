@@ -5,6 +5,7 @@ import (
 	"gufeijun/hustgen/config"
 	"gufeijun/hustgen/gen/utils"
 	"gufeijun/hustgen/service"
+	"io"
 	"path"
 	"text/template"
 )
@@ -31,9 +32,9 @@ func genSourceFile(conf *config.ComplileConfig) error {
 	genStatement(cte)
 	genSourceFileIncludes(cte)
 	genArgumentInitAndDestroy(cte)
+	genErrorFunc(cte)
 	genMashalFunc(cte)
 	genUnmarshalFunc(cte)
-	//TODO
 	genHandlers(cte)
 	genRegisterService(cte)
 
@@ -48,8 +49,29 @@ func Gen(conf *config.ComplileConfig) error {
 }
 
 func genHandlers(te *utils.TmplExec) {
+	type Data struct {
+		MessageResp   bool
+		FuncName      string   //函数名
+		Defines       []string //变量定义
+		ArgChecks     string   //参数合法性检查
+		ArgInits      []string //传参初始化
+		ArgUnmarshals []string //传参反序列化
+		CallArgs      string
+		Resp          string //返回值序列化
+		End           string //资源释放
+	}
 	utils.TraverseMethod(func(method *service.Method) (end bool) {
-
+		data := new(Data)
+		data.MessageResp = method.RetType.TypeKind == service.TypeKindMessage
+		data.FuncName = fmt.Sprintf("%s_%s", method.Service.Name, method.MethodName)
+		data.Defines = buildArgDefines(method)
+		data.ArgChecks = buildArgChecks(method)
+		data.ArgInits = buildArgInits(method)
+		data.ArgUnmarshals = buildArgUnmarshals(method)
+		data.CallArgs = buildCallArgs(method)
+		data.Resp = buildResp(method)
+		data.End = buildEnd(method)
+		te.Execute(handlerTmpl, data)
 		return
 	})
 }
@@ -151,7 +173,7 @@ func genStructs(te *utils.TmplExec) {
 		s.Name = message.Name
 		s.Members = make([]string, len(message.Mems))
 		for i, mem := range message.Mems {
-			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.MemType), mem.MemName)
+			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.MemType, false), mem.MemName)
 		}
 		te.Execute(structTmpl, s)
 	}
@@ -170,4 +192,9 @@ func genStatement(te *utils.TmplExec) {
 		Version: config.Version,
 		Source:  path.Base(te.Conf.SrcIDL),
 	})
+}
+
+func genErrorFunc(te *utils.TmplExec) {
+	te.W.Write([]byte{'\n'})
+	io.WriteString(te.W, macro)
 }
