@@ -99,17 +99,21 @@ void {{.Name}}_destroy(struct {{.Name}}* data)
 const _marshalFuncTmpl = `
 cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
 	cJSON* root = NULL;
-	if (data == NULL) goto bad;
 	{{ if .MessageMem -}}
 	cJSON* item = NULL;
 	{{ end }}
+	if (data == NULL) goto bad;
     root = cJSON_CreateObject();
     if (!root) goto bad;
 	{{- range .Message.Mems -}}
 	{{- if eq .MemType.TypeKind 2 }}
-	item = {{ .MemType.TypeName }}_marshal(data->{{.MemName}}, err);
-	if (!err->null) goto bad;
-    if (!cJSON_AddItemToObject(root, "{{ .MemName }}", item)) goto bad;
+    if (data->{{.MemName}} == NULL) {
+        if (cJSON_AddNullToObject(root, "{{.MemName}}") == NULL) goto bad;
+    } else {
+		item = {{ .MemType.TypeName }}_marshal(data->{{.MemName}}, err);
+		if (!err->null) goto bad;
+    	if (!cJSON_AddItemToObject(root, "{{ .MemName }}", item)) goto bad;
+    }
 	{{- else if eq .MemType.TypeName "string" }}
     if (cJSON_AddStringToObject(root, "{{ .MemName }}", data->{{.MemName}}) == NULL) goto bad;
 	{{- else }}
@@ -135,10 +139,14 @@ void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err
 	{{ range .Message.Mems }}
     item = cJSON_GetObjectItemCaseSensitive(root, "{{ .MemName }}");
 	{{- if eq .MemType.TypeKind 2 }}
-    if (!item || !cJSON_IsObject(item)) goto bad;
-    data = cJSON_Print(item);
-	{{.MemType.TypeName}}_unmarshal(dst->{{.MemName}}, data, err);
-	if (!err->null) goto bad;
+    if (cJSON_IsNull(item))
+        dst->Nums = NULL;
+    else {
+		if (!item || !cJSON_IsObject(item)) goto bad;
+    	data = cJSON_Print(item);
+		{{.MemType.TypeName}}_unmarshal(dst->{{.MemName}}, data, err);
+		if (!err->null) goto bad;
+    }
 	{{- else if eq .MemType.TypeName "string" }}
 	if (!item || !cJSON_IsString(item)) goto bad;
 	dst->{{.MemName}} = strdup(item->string);
