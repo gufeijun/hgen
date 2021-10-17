@@ -91,6 +91,7 @@ void {{.Name}}_destroy(struct {{.Name}}* data)
 {{- else }} {
 	{{- range .MessageMems}}
 	{{.MemType.TypeName}}_destroy(data->{{.MemName}});
+	free(data->{{.MemName}});
 	{{- end }}
 }
 {{- end -}}
