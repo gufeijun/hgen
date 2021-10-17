@@ -109,7 +109,7 @@ cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
 	{{- if eq .MemType.TypeKind 2 }}
 	item = {{ .MemType.TypeName }}_marshal(data->{{.MemName}}, err);
 	if (!err->null) goto bad;
-    if (cJSON_AddItemToObject(root, "{{ .MemName }}", item) == NULL) goto bad;
+    if (!cJSON_AddItemToObject(root, "{{ .MemName }}", item)) goto bad;
 	{{- else if eq .MemType.TypeName "string" }}
     if (cJSON_AddStringToObject(root, "{{ .MemName }}", data->{{.MemName}}) == NULL) goto bad;
 	{{- else }}

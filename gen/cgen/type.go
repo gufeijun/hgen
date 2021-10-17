@@ -162,11 +162,12 @@ func buildEnd(method *service.Method) string {
 		}
 	}
 	t := method.RetType
-	if t.TypeKind == service.TypeKindMessage || t.TypeName == "string" {
-		fmt.Fprintf(&builder, "\n\tif (res) %s_destroy(res);", t.TypeName)
+	if t.TypeName == "string" {
 		fmt.Fprintf(&builder, "\n\tfree(res);")
 	}
 	if t.TypeKind == service.TypeKindMessage {
+		fmt.Fprintf(&builder, "\n\tif (res) %s_destroy(res);", t.TypeName)
+		fmt.Fprintf(&builder, "\n\tfree(res);")
 		fmt.Fprintf(&builder, "\n\tif (root) cJSON_Delete(root);")
 	}
 	return builder.String()

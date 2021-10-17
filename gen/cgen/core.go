@@ -173,7 +173,7 @@ func genStructs(te *utils.TmplExec) {
 		s.Name = message.Name
 		s.Members = make([]string, len(message.Mems))
 		for i, mem := range message.Mems {
-			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.MemType, false), mem.MemName)
+			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.MemType, true), mem.MemName)
 		}
 		te.Execute(structTmpl, s)
 	}
