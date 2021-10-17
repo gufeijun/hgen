@@ -149,7 +149,7 @@ func buildResp(method *service.Method) string {
 		return builder.String()
 	}
 	if t.TypeName == "string" {
-		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "string", strlen(res), res);`))
+		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "string", res == NULL? 0 : strlen(res), res);`))
 	} else if t.TypeName == "void" {
 		builder.WriteString(`build_resp(resp, 4, "", 0, NULL);`)
 	} else {
