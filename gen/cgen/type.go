@@ -52,13 +52,11 @@ func buildMethod(method *service.Method) string {
 	var builder strings.Builder
 	builder.WriteString(toClangType(method.RetType, true))
 	fmt.Fprintf(&builder, " %s_%s(", method.Service.Name, method.MethodName)
-	for i, t := range method.ReqTypes {
-		if i != 0 {
-			builder.WriteString(", ")
-		}
+	for _, t := range method.ReqTypes {
 		builder.WriteString(toClangType(t, true))
+		builder.WriteString(", ")
 	}
-	builder.WriteString(", error_t*);")
+	builder.WriteString("error_t*);")
 	return builder.String()
 }
 
