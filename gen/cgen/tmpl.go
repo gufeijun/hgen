@@ -174,8 +174,8 @@ void {{.FuncName}}_handler(request_t* req, error_t* err, struct argument* resp) 
 	{{- range .ArgUnmarshals }}
 	{{.}}
 	{{- end }}
-
-	res = {{.FuncName}}({{.CallArgs}});
+	
+	{{if not .NoResp}}res = {{end}}{{.FuncName}}({{.CallArgs}});
 	if (!err->null) goto end;
 	{{.Resp}}
 end:{{.End}}

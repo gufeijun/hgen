@@ -51,6 +51,7 @@ func Gen(conf *config.ComplileConfig) error {
 func genHandlers(te *utils.TmplExec) {
 	type Data struct {
 		MessageResp   bool
+		NoResp        bool
 		FuncName      string   //函数名
 		Defines       []string //变量定义
 		ArgChecks     string   //参数合法性检查
@@ -62,6 +63,7 @@ func genHandlers(te *utils.TmplExec) {
 	}
 	utils.TraverseMethod(func(method *service.Method) (end bool) {
 		data := new(Data)
+		data.NoResp = method.RetType.TypeName == "void"
 		data.MessageResp = method.RetType.TypeKind == service.TypeKindMessage
 		data.FuncName = fmt.Sprintf("%s_%s", method.Service.Name, method.MethodName)
 		data.Defines = buildArgDefines(method)

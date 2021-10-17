@@ -17,6 +17,7 @@ var IDLtoCType = map[string]string{
 	"uint64":  "uint64_t",
 	"float32": "float",
 	"float64": "double",
+	"void":    "void",
 	"string":  "char*",
 }
 
@@ -70,6 +71,9 @@ func buildArgDefines(method *service.Method) []string {
 	if t.TypeKind == service.TypeKindMessage || t.TypeName == "string" {
 		str = fmt.Sprintf("%s res = NULL;", toClangType(t, true))
 	} else {
+		if t.TypeName == "void" {
+			return defines
+		}
 		str = fmt.Sprintf("%s res;", toClangType(t, true))
 	}
 	defines = append(defines, str)
@@ -146,6 +150,8 @@ func buildResp(method *service.Method) string {
 	}
 	if t.TypeName == "string" {
 		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "string", strlen(res), res);`))
+	} else if t.TypeName == "void" {
+		builder.WriteString(`build_resp(resp, 4, "", 0, NULL);`)
 	} else {
 		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "%s", %d, (char*)&res);`, t.TypeName, typeLength[t.TypeName]))
 	}
