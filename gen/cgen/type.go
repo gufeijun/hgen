@@ -255,7 +255,7 @@ func buildRespCheck(method *service.Method) string {
 func buildRespUnmarshal(method *service.Method) string {
 	ret := method.RetType
 	if ret.TypeName == "string" {
-		return `v = resp.data;
+		return `	v = resp.data;
 	free_data = 0;`
 	}
 	if ret.TypeKind == service.TypeKindNormal {
