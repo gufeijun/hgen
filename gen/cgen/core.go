@@ -99,13 +99,15 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 }
 
 func genCallFuncs(te *utils.TmplExec) {
-	//TODO checker unmarshalResp end
+	//TODO end
 	type Data struct {
 		MessageArgs   []string
 		FuncSignature string
 		RespDefine    string
 		RequestInit   string
 		ArgInits      []string
+		RespCheck     string
+		RespUnmarshal string
 	}
 	utils.TraverseMethod(func(method *service.Method) bool {
 		data := &Data{
@@ -113,6 +115,8 @@ func genCallFuncs(te *utils.TmplExec) {
 			RespDefine:    buildRespArgDefine(method),
 			RequestInit:   buildCallRequestInit(method),
 			ArgInits:      buildCallArgInits(method),
+			RespCheck:     buildRespCheck(method),
+			RespUnmarshal: buildRespUnmarshal(method),
 		}
 		var i int
 		for _, t := range method.ReqTypes {

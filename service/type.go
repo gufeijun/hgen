@@ -4,6 +4,8 @@ const (
 	TypeKindNormal = iota
 	TypeKindStream
 	TypeKindMessage
+	TypeKindErr
+	TypeKindNoRTN
 )
 
 var BuiltinTypes = map[string]struct{}{

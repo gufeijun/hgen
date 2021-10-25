@@ -203,8 +203,10 @@ const _clientMethodTmpl = `
 
 const _clientCallTmpl = `
 {{ .FuncSignature }} {
+	int free_data = 1;
     struct client_request req;
     struct argument resp;
+	error_t* err = &client->err;
 	{{- if ne (len .MessageArgs) 0 }}
 	char* data = NULL;
 	{{- end }}
@@ -219,6 +221,15 @@ const _clientCallTmpl = `
 	{{- end }}
 	client_call(client, &req, &resp);
     if (!client->err.null) goto end;
+	{{ .RespCheck }}
+	{{- .RespUnmarshal }}
+end:
+    if (resp.data && free_data) free(resp.data);
+    if (resp.type_name) free(resp.type_name);
+	{{- range .MessageArgs }}
+    if ({{.}}) cJSON_Delete({{.}});
+	{{- end }}
+    return v;
 }
 `
 

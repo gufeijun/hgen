@@ -216,7 +216,7 @@ func buildCallArgInits(method *service.Method) (res []string) {
 			ii++
 			var builder strings.Builder
 			str := fmt.Sprintf(`node%d = %s_marshal(arg%d, &client->err);
-    if (client_failed(client)) goto end;
+    if (client_failed(client)) return v;
     data = cJSON_Print(node%d);`, ii, t.TypeName, i+1, ii)
 			builder.WriteString(str)
 			str = fmt.Sprintf(`
@@ -235,4 +235,33 @@ func buildCallArgInits(method *service.Method) (res []string) {
 		res = append(res, str)
 	}
 	return
+}
+
+func buildRespCheck(method *service.Method) string {
+	var builder strings.Builder
+	ret := method.RetType
+	if ret.TypeKind == service.TypeKindNoRTN {
+		return ""
+	}
+	fmt.Fprintf(&builder, `CHECK_ARG_TYPE("%s", resp.type_name)`, ret.TypeName)
+	builder.WriteByte('\n')
+	if ret.TypeKind == service.TypeKindNormal && ret.TypeName != "string" {
+		fmt.Fprintf(&builder, `	CHECK_ARG_SIZE("%s", %d, resp.data_len)`, ret.TypeName, typeLength[ret.TypeName])
+		builder.WriteByte('\n')
+	}
+	return builder.String()
+}
+
+func buildRespUnmarshal(method *service.Method) string {
+	ret := method.RetType
+	if ret.TypeName == "string" {
+		return `v = resp.data;
+	free_data = 0;`
+	}
+	if ret.TypeKind == service.TypeKindNormal {
+		return fmt.Sprintf(`	memcpy(&v, resp.data, %d);`, typeLength[ret.TypeName])
+	}
+	return fmt.Sprintf(`	v = malloc(sizeof(struct %s));
+	%s_unmarshal(v, resp.data, &client->err);
+	`, ret.TypeName, ret.TypeName)
 }
