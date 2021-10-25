@@ -7,45 +7,143 @@ import (
 	"gufeijun/hustgen/service"
 	"io"
 	"path"
+	"strings"
 	"text/template"
 )
 
-func genHeaderFile(conf *config.ComplileConfig) error {
-	hte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.h"))
+func Gen(conf *config.ComplileConfig) error {
+	if err := genServerHeaderFile(conf); err != nil {
+		return err
+	}
+	if err := genServerSourceFile(conf); err != nil {
+		return err
+	}
+	if err := genClientHeaderFile(conf); err != nil {
+		return err
+	}
+	return genClientSourceFile(conf)
+}
+
+func genDef(w io.Writer, srcIDL string, side string) {
+	index := strings.Index(srcIDL, ".")
+	if index != -1 {
+		srcIDL = srcIDL[:index]
+	}
+	macro := fmt.Sprintf("__%s_RPCH_%s_H_", srcIDL, side)
+	fmt.Fprintf(w, "#ifndef %s\n", macro)
+	fmt.Fprintf(w, "#define %s\n\n", macro)
+}
+
+func genServerHeaderFile(conf *config.ComplileConfig) error {
+	hte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.server.h"))
 	if err != nil {
 		return err
 	}
 	defer hte.Close()
 	genStatement(hte)
-	genHeaderFileIncludes(hte)
+	genDef(hte.W, conf.SrcIDL, "SERVER")
+	genHeaderFileIncludes(hte, []string{`<stdint.h>`, `"error.h"`, `"server.h"`})
 	genStructs(hte)
 	genServiceMethod(hte)
+	fmt.Fprint(hte.W, "#endif")
 	return hte.Err
 }
 
-func genSourceFile(conf *config.ComplileConfig) error {
-	cte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.c"))
+func genClientHeaderFile(conf *config.ComplileConfig) error {
+	cte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.client.h"))
 	if err != nil {
 		return err
 	}
 	defer cte.Close()
 	genStatement(cte)
-	genSourceFileIncludes(cte)
-	genArgumentInitAndDestroy(cte)
-	genErrorFunc(cte)
+	genDef(cte.W, conf.SrcIDL, "CLIENT")
+	genHeaderFileIncludes(cte, []string{`<stdint.h>`, `"client.h"`})
+	genStructs(cte)
+	genDestroyResponse(cte)
+	genClientMethod(cte)
+	fmt.Fprint(cte.W, "\n#endif")
+	return cte.Err
+}
+
+func genServerSourceFile(conf *config.ComplileConfig) error {
+	cte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.server.c"))
+	if err != nil {
+		return err
+	}
+	defer cte.Close()
+	genStatement(cte)
+	genSourceFileIncludes(cte, []string{"stdint.h", "stdlib.h", "string.h"}, []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}, "server")
+	genArgumentInitAndDestroy(cte, false)
+	genErrorMacro(cte, "return")
 	genMashalFunc(cte)
 	genUnmarshalFunc(cte)
 	genHandlers(cte)
 	genRegisterService(cte)
-
 	return cte.Err
 }
 
-func Gen(conf *config.ComplileConfig) error {
-	if err := genHeaderFile(conf); err != nil {
+func genClientSourceFile(conf *config.ComplileConfig) error {
+	cte, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.client.c"))
+	if err != nil {
 		return err
 	}
-	return genSourceFile(conf)
+	defer cte.Close()
+	genStatement(cte)
+	genSourceFileIncludes(cte, []string{"stdint.h", "string.h", "stdlib.h"}, []string{"argument.h", "cJSON.h", "error.h", "client.h"}, "client")
+	genArgumentInitAndDestroy(cte, true)
+	genErrorMacro(cte, "goto end")
+	genMashalFunc(cte)
+	genUnmarshalFunc(cte)
+	genCallFuncs(cte)
+	return cte.Err
+}
+
+func genCallFuncs(te *utils.TmplExec) {
+	//TODO checker unmarshalResp end
+	type Data struct {
+		MessageArgs   []string
+		FuncSignature string
+		RespDefine    string
+		RequestInit   string
+		ArgInits      []string
+	}
+	utils.TraverseMethod(func(method *service.Method) bool {
+		data := &Data{
+			FuncSignature: buildCallFuncSignature(method),
+			RespDefine:    buildRespArgDefine(method),
+			RequestInit:   buildCallRequestInit(method),
+			ArgInits:      buildCallArgInits(method),
+		}
+		var i int
+		for _, t := range method.ReqTypes {
+			if t.TypeKind == service.TypeKindMessage {
+				i++
+				data.MessageArgs = append(data.MessageArgs, fmt.Sprintf("node%d", i))
+			}
+		}
+		te.Execute(clientCallTmpl, data)
+		return false
+	})
+}
+
+func genDestroyResponse(te *utils.TmplExec) {
+	utils.TraverseRespArgs(func(t *service.Type) bool {
+		if t.TypeKind == service.TypeKindNormal {
+			return false
+		}
+		fmt.Fprintf(te.W, "\nvoid %s_destroy(struct %s*);", t.TypeName, t.TypeName)
+		return false
+	})
+}
+
+func genClientMethod(te *utils.TmplExec) {
+	for _, s := range service.GlobalAsset.Services {
+		var methods []string
+		for _, method := range s.Methods {
+			methods = append(methods, buildMethod(method, "client_t*"))
+		}
+		te.Execute(clientMethodTmpl, methods)
+	}
 }
 
 func genHandlers(te *utils.TmplExec) {
@@ -119,11 +217,13 @@ func genRegisterService(te *utils.TmplExec) {
 	}
 }
 
-func genArgumentInitAndDestroy(te *utils.TmplExec) {
+func genArgumentInitAndDestroy(te *utils.TmplExec, noStatement bool) {
 	te.W.Write([]byte{'\n'})
-	for _, m := range service.GlobalAsset.Messages {
-		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_init(struct %s*);\n", m.Name, m.Name)
-		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_destroy(struct %s*);\n", m.Name, m.Name)
+	if !noStatement {
+		for _, m := range service.GlobalAsset.Messages {
+			fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_init(struct %s*);\n", m.Name, m.Name)
+			fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_destroy(struct %s*);\n", m.Name, m.Name)
+		}
 	}
 
 	for _, m := range service.GlobalAsset.Messages {
@@ -141,14 +241,15 @@ func genArgumentInitAndDestroy(te *utils.TmplExec) {
 	}
 }
 
-func genSourceFileIncludes(te *utils.TmplExec) {
+func genSourceFileIncludes(te *utils.TmplExec, stdlib []string, includes []string, side string) {
 	data := &struct {
 		Header   string
 		Stdlib   []string
 		Includes []string
-	}{Stdlib: []string{"stdint.h", "stdlib.h", "string.h"},
-		Includes: []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}}
-	data.Header = path.Base(utils.GenFilePath(te.Conf.SrcIDL, te.Conf.OutDir, ".rpch.h"))
+	}{}
+	data.Includes = includes
+	data.Stdlib = stdlib
+	data.Header = path.Base(utils.GenFilePath(te.Conf.SrcIDL, te.Conf.OutDir, ".rpch."+side+".h"))
 	te.Execute(sourceFileIncludesTmpl, data)
 }
 
@@ -159,7 +260,7 @@ func genServiceMethod(te *utils.TmplExec) {
 			Methods     []string
 		}{ServiceName: s.Name}
 		for _, method := range s.Methods {
-			data.Methods = append(data.Methods, buildMethod(method))
+			data.Methods = append(data.Methods, buildMethod(method, "error_t*"))
 		}
 		te.Execute(serviceMethodTmpl, data)
 	}
@@ -181,8 +282,7 @@ func genStructs(te *utils.TmplExec) {
 	}
 }
 
-func genHeaderFileIncludes(te *utils.TmplExec) {
-	var includes = []string{`<stdint.h>`, `"error.h"`, `"server.h"`}
+func genHeaderFileIncludes(te *utils.TmplExec, includes []string) {
 	te.Execute(includesTmpl, includes)
 }
 
@@ -196,7 +296,7 @@ func genStatement(te *utils.TmplExec) {
 	})
 }
 
-func genErrorFunc(te *utils.TmplExec) {
+func genErrorMacro(te *utils.TmplExec, action string) {
 	te.W.Write([]byte{'\n'})
-	io.WriteString(te.W, macro)
+	te.Execute(macroTmpl, action)
 }

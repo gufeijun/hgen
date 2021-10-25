@@ -3,6 +3,7 @@ package cgen
 import "text/template"
 
 var (
+	macroTmpl                  = must(_macroTmpl)
 	statementTmpl              = must(_statementTmpl)
 	includesTmpl               = must(_includesTmpl)
 	structStateTmpl            = must(_structStateTmpl)
@@ -14,6 +15,8 @@ var (
 	marshalFuncTmpl            = must(_marshalFuncTmpl)
 	unmarshalFuncTmpl          = must(_unmarshalFuncTmpl)
 	handlerTmpl                = must(_handlerTmpl)
+	clientMethodTmpl           = must(_clientMethodTmpl)
+	clientCallTmpl             = must(_clientCallTmpl)
 )
 
 func must(tmpl string) *template.Template {
@@ -192,7 +195,34 @@ end:{{.End}}
 }
 `
 
-const macro = `
+const _clientMethodTmpl = `
+{{- range . }}
+{{.}}
+{{- end }}
+`
+
+const _clientCallTmpl = `
+{{ .FuncSignature }} {
+    struct client_request req;
+    struct argument resp;
+	{{- if ne (len .MessageArgs) 0 }}
+	char* data = NULL;
+	{{- end }}
+	{{- range .MessageArgs }}
+    cJSON* {{.}} = NULL;
+	{{- end }}
+	{{ .RespDefine }}
+
+	{{ .RequestInit }}
+	{{- range .ArgInits }}
+	{{ . }}
+	{{- end }}
+	client_call(client, &req, &resp);
+    if (!client->err.null) goto end;
+}
+`
+
+const _macroTmpl = `
 #define invalid_argcnt(err, want, got) \
     errorf(err, "expected count of arugments is %d, but got %d", want, got)
 #define invalid_type(err, want, got) \
@@ -203,21 +233,21 @@ const macro = `
     {                                              \
         if (got != want) {                         \
             invalid_argcnt(err, got, req->argcnt); \
-            return;                                \
+			{{.}};                                \
         }                                          \
     }
 #define CHECK_ARG_TYPE(want, got)         \
     {                                     \
         if (strcmp(want, got) != 0) {     \
             invalid_type(err, want, got); \
-            return;                       \
+			{{.}};                       \
         }                                 \
     }
 #define CHECK_ARG_SIZE(t, want, got)              \
     {                                             \
         if (want != got) {                        \
             invalid_type_size(err, t, want, got); \
-            return;                               \
+			{{.}};                               \
         }                                         \
     }
 #define MARSHAL_FAILED(obj) error_put(err, "marshal struct " obj " failed");

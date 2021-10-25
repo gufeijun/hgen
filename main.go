@@ -8,8 +8,22 @@ import (
 	"gufeijun/hustgen/parse"
 )
 
+var (
+	printVersion = flag.Bool("version", false, "print program build version")
+	lang         = flag.String("lang", "c", "the target languege the IDL will be compliled to")
+	dir          = flag.String("dir", "gfj", "the dirpath where the generated source code files will be placed")
+)
+
+func init() {
+	flag.Parse()
+}
+
 func main() {
-	conf := parseConfig()
+	conf := &config.ComplileConfig{
+		TargetLang:   *lang,
+		OutDir:       *dir,
+		PrintVersion: *printVersion,
+	}
 	if conf.PrintVersion {
 		fmt.Printf("Version: %s\n", config.Version)
 		return
@@ -29,16 +43,4 @@ func main() {
 		fmt.Println(err)
 	}
 	return
-}
-
-func parseConfig() *config.ComplileConfig {
-	printVersion := flag.Bool("version", false, "print program build version")
-	lang := flag.String("lang", "go", "the target languege the IDL will be compliled to")
-	dir := flag.String("dir", "gfj", "the dirpath where the generated source code files will be placed")
-	flag.Parse()
-	return &config.ComplileConfig{
-		TargetLang:   *lang,
-		OutDir:       *dir,
-		PrintVersion: *printVersion,
-	}
 }

@@ -49,7 +49,7 @@ func toClangType(t *service.Type, pointer bool) string {
 	return ""
 }
 
-func buildMethod(method *service.Method) string {
+func buildMethod(method *service.Method, lastArg string) string {
 	var builder strings.Builder
 	builder.WriteString(toClangType(method.RetType, true))
 	fmt.Fprintf(&builder, " %s_%s(", method.Service.Name, method.MethodName)
@@ -57,7 +57,8 @@ func buildMethod(method *service.Method) string {
 		builder.WriteString(toClangType(t, true))
 		builder.WriteString(", ")
 	}
-	builder.WriteString("error_t*);")
+	builder.WriteString(lastArg)
+	builder.WriteString(");")
 	return builder.String()
 }
 
@@ -175,4 +176,63 @@ func buildEnd(method *service.Method) string {
 		fmt.Fprintf(&builder, "\n\tif (root) cJSON_Delete(root);")
 	}
 	return builder.String()
+}
+
+func buildCallFuncSignature(method *service.Method) string {
+	var builder strings.Builder
+	builder.WriteString(toClangType(method.RetType, true))
+	fmt.Fprintf(&builder, " %s_%s(", method.Service.Name, method.MethodName)
+	for i, t := range method.ReqTypes {
+		fmt.Fprintf(&builder, "%s arg%d, ", toClangType(t, true), i+1)
+	}
+	builder.WriteString("client_t* client)")
+	return builder.String()
+}
+
+func buildRespArgDefine(method *service.Method) string {
+	ret := method.RetType
+	if ret.TypeName == "void" {
+		return ""
+	}
+	var resp string
+	if ret.TypeKind == service.TypeKindMessage {
+		resp = fmt.Sprintf("%s v = NULL;", toClangType(ret, true))
+	} else if ret.TypeName == "string" {
+		resp = "char* v = NULL;"
+	} else {
+		resp = fmt.Sprintf("%s v = 0;", toClangType(ret, false))
+	}
+	return resp
+}
+
+func buildCallRequestInit(method *service.Method) string {
+	return fmt.Sprintf(`client_request_init(&req, "%s", "%s", %d);`, method.Service.Name, method.MethodName, len(method.ReqTypes))
+}
+
+func buildCallArgInits(method *service.Method) (res []string) {
+	var ii int
+	for i, t := range method.ReqTypes {
+		if t.TypeKind == service.TypeKindMessage {
+			ii++
+			var builder strings.Builder
+			str := fmt.Sprintf(`node%d = %s_marshal(arg%d, &client->err);
+    if (client_failed(client)) goto end;
+    data = cJSON_Print(node%d);`, ii, t.TypeName, i+1, ii)
+			builder.WriteString(str)
+			str = fmt.Sprintf(`
+	argument_init_with_option(req.args + %d, %d, "%s", data, strlen(data));`, i, t.TypeKind, t.TypeName)
+			builder.WriteString(str)
+			res = append(res, builder.String())
+		}
+		var str string
+		if t.TypeName == "string" {
+			str = fmt.Sprintf(`argument_init_with_option(req.args + %d, %d, "%s", arg%d, strlen(arg%d));`,
+				i, t.TypeKind, t.TypeName, i+1, i+1)
+		} else if t.TypeKind == service.TypeKindNormal {
+			str = fmt.Sprintf(`argument_init_with_option(req.args + %d, %d, "%s", &arg%d, %d);`,
+				i, t.TypeKind, t.TypeName, i+1, typeLength[t.TypeName])
+		}
+		res = append(res, str)
+	}
+	return
 }
