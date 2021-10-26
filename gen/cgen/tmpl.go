@@ -153,7 +153,7 @@ void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err
     }
 	{{- else if eq .MemType.TypeName "string" }}
 	if (!item || !cJSON_IsString(item)) goto bad;
-	dst->{{.MemName}} = strdup(item->string);
+	dst->{{.MemName}} = strdup(cJSON_GetStringValue(item));
 	{{- else if or (eq .MemType.TypeName "float32") (eq .MemType.TypeName "float64")}}
 	if (!item || !cJSON_IsNumber(item)) goto bad;
 	dst->{{.MemName}} = ({{index $map .MemType.TypeName}})item->valuedouble;
