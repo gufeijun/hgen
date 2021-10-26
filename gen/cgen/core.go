@@ -99,7 +99,6 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 }
 
 func genCallFuncs(te *utils.TmplExec) {
-	//TODO end
 	type Data struct {
 		MessageArgs   []string
 		FuncSignature string

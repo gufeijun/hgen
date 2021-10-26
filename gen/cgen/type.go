@@ -262,6 +262,7 @@ func buildRespUnmarshal(method *service.Method) string {
 		return fmt.Sprintf(`	memcpy(&v, resp.data, %d);`, typeLength[ret.TypeName])
 	}
 	return fmt.Sprintf(`	v = malloc(sizeof(struct %s));
+	%s_init(v);
 	%s_unmarshal(v, resp.data, &client->err);
-	`, ret.TypeName, ret.TypeName)
+	`, ret.TypeName, ret.TypeName, ret.TypeName)
 }
