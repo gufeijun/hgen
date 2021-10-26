@@ -144,7 +144,7 @@ void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err
     item = cJSON_GetObjectItemCaseSensitive(root, "{{ .MemName }}");
 	{{- if eq .MemType.TypeKind 2 }}
     if (cJSON_IsNull(item))
-        dst->Nums = NULL;
+        dst->{{ .MemName }} = NULL;
     else {
 		if (!item || !cJSON_IsObject(item)) goto bad;
     	data = cJSON_Print(item);
