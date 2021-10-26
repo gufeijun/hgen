@@ -129,6 +129,7 @@ cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
 	if (data == NULL) goto bad;
     root = cJSON_CreateObject();
     if (!root) goto bad;
+	{{- $serverSide:= .ServerSide}}
 	{{- range .Message.Mems -}}
 	{{- if eq .MemType.TypeKind 2 }}
     if (data->{{.MemName}} == NULL) {
@@ -139,6 +140,7 @@ cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
     	if (!cJSON_AddItemToObject(root, "{{ .MemName }}", item)) goto bad;
     }
 	{{- else if eq .MemType.TypeName "string" }}
+	if (data->{{.MemName}} == NULL) data->{{.MemName}} = {{if $serverSide}}strdup(""){{else}}""{{end}};
     if (cJSON_AddStringToObject(root, "{{ .MemName }}", data->{{.MemName}}) == NULL) goto bad;
 	{{- else }}
     if (cJSON_AddNumberToObject(root, "{{ .MemName }}", (double)data->{{.MemName}}) == NULL) goto bad;

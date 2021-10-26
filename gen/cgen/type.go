@@ -226,7 +226,8 @@ func buildCallArgInits(method *service.Method) (res []string) {
 		}
 		var str string
 		if t.TypeName == "string" {
-			str = fmt.Sprintf(`argument_init_with_option(req.args + %d, %d, "%s", arg%d, strlen(arg%d));`,
+			str = fmt.Sprintf(`arg%d = arg%d == NULL ? "" : arg%d;
+	argument_init_with_option(req.args + %d, %d, "%s", arg%d, strlen(arg%d));`, i+1, i+1, i+1,
 				i, t.TypeKind, t.TypeName, i+1, i+1)
 		} else if t.TypeKind == service.TypeKindNormal {
 			str = fmt.Sprintf(`argument_init_with_option(req.args + %d, %d, "%s", &arg%d, %d);`,

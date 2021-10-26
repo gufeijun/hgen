@@ -76,7 +76,7 @@ func genServerSourceFile(conf *config.ComplileConfig) error {
 	genSourceFileIncludes(cte, []string{"stdint.h", "stdlib.h", "string.h"}, []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}, "server")
 	genArgumentInitAndDestroy(cte, true)
 	genErrorMacro(cte, "return")
-	genMashalFunc(cte)
+	genMashalFunc(cte, true)
 	genUnmarshalFunc(cte)
 	genHandlers(cte)
 	genRegisterService(cte)
@@ -93,7 +93,7 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 	genSourceFileIncludes(cte, []string{"stdint.h", "string.h", "stdlib.h"}, []string{"argument.h", "cJSON.h", "error.h", "client.h"}, "client")
 	genArgumentInitAndDestroy(cte, false)
 	genErrorMacro(cte, "goto end")
-	genMashalFunc(cte)
+	genMashalFunc(cte, false)
 	genUnmarshalFunc(cte)
 	genCallFuncs(cte)
 	return cte.Err
@@ -206,14 +206,15 @@ func genHandlers(te *utils.TmplExec) {
 	})
 }
 
-func common(te *utils.TmplExec, tmpl *template.Template) {
+func common(te *utils.TmplExec, tmpl *template.Template, serverSide bool) {
 	for _, message := range service.GlobalAsset.Messages {
 		data := &struct {
 			TypeName   string
 			Message    *service.Message
 			MessageMem bool
 			IDL2CType  map[string]string
-		}{TypeName: message.Name, Message: message, IDL2CType: IDLtoCType}
+			ServerSide bool
+		}{TypeName: message.Name, Message: message, IDL2CType: IDLtoCType, ServerSide: serverSide}
 		for _, mem := range message.Mems {
 			if mem.MemType.TypeKind == service.TypeKindMessage {
 				data.MessageMem = true
@@ -229,16 +230,16 @@ func genUnmarshalFunc(te *utils.TmplExec) {
 		fmt.Fprintf(te.W, "static void %s_unmarshal(struct %s* dst, char* data, error_t* err);\n",
 			message.Name, message.Name)
 	}
-	common(te, unmarshalFuncTmpl)
+	common(te, unmarshalFuncTmpl, false)
 }
 
-func genMashalFunc(te *utils.TmplExec) {
+func genMashalFunc(te *utils.TmplExec, serverSide bool) {
 	fmt.Fprint(te.W, "\n\n")
 	for _, message := range service.GlobalAsset.Messages {
 		fmt.Fprintf(te.W, "static cJSON* %s_marshal(struct %s* arg, error_t* err);\n",
 			message.Name, message.Name)
 	}
-	common(te, marshalFuncTmpl)
+	common(te, marshalFuncTmpl, serverSide)
 }
 
 func genRegisterService(te *utils.TmplExec) {
