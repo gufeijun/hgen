@@ -125,6 +125,7 @@ func genStructCreate(te *utils.TmplExec) {
 
 func genCallFuncs(te *utils.TmplExec) {
 	type Data struct {
+		HasRtn        bool
 		MessageArgs   []string
 		FuncSignature string
 		RespDefine    string
@@ -141,6 +142,7 @@ func genCallFuncs(te *utils.TmplExec) {
 			ArgInits:      buildCallArgInits(method),
 			RespCheck:     buildRespCheck(method),
 			RespUnmarshal: buildRespUnmarshal(method),
+			HasRtn:        method.RetType.TypeName != "void",
 		}
 		var i int
 		for _, t := range method.ReqTypes {

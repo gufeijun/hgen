@@ -206,7 +206,6 @@ void {{.FuncName}}_handler(request_t* req, error_t* err, struct argument* resp) 
 	{{- range .ArgUnmarshals }}
 	{{.}}
 	{{- end }}
-	
 	{{if not .NoResp}}res = {{end}}{{.FuncName}}({{.CallArgs}});
 	if (!err->null) goto end;
 	{{.Resp}}
@@ -226,14 +225,16 @@ const _clientCallTmpl = `
 	int free_data = 1;
     struct client_request req;
     struct argument resp;
+	{{- if .HasRtn }}
 	error_t* err = &client->err;
+	{{- end }}
 	{{- if ne (len .MessageArgs) 0 }}
 	char* data = NULL;
 	{{- end }}
 	{{- range .MessageArgs }}
     cJSON* {{.}} = NULL;
 	{{- end }}
-	{{ .RespDefine }}
+	{{- .RespDefine }}
 
 	{{ .RequestInit }}
 	{{- range .ArgInits }}
@@ -241,15 +242,17 @@ const _clientCallTmpl = `
 	{{- end }}
 	client_call(client, &req, &resp);
     if (!client->err.null) goto end;
+	{{- if .HasRtn }}
 	{{ .RespCheck }}
 	{{- .RespUnmarshal }}
+	{{- end }}
 end:
     if (resp.data && free_data) free(resp.data);
     if (resp.type_name) free(resp.type_name);
 	{{- range .MessageArgs }}
     if ({{.}}) cJSON_Delete({{.}});
 	{{- end }}
-    return v;
+    return{{if .HasRtn}} v{{end}};
 }
 `
 
