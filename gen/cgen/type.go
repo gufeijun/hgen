@@ -215,13 +215,18 @@ func buildCallArgInits(method *service.Method) (res []string) {
 		if t.TypeKind == service.TypeKindMessage {
 			ii++
 			var builder strings.Builder
-			str := fmt.Sprintf(`node%d = %s_marshal(arg%d, &client->err);
-    if (client_failed(client)) return v;
-    data = cJSON_Print(node%d);`, ii, t.TypeName, i+1, ii)
-			builder.WriteString(str)
-			str = fmt.Sprintf(`
-	argument_init_with_option(req.args + %d, %d, "%s", data, strlen(data));`, i, t.TypeKind, t.TypeName)
-			builder.WriteString(str)
+			fmt.Fprintf(&builder, `node%d = %s_marshal(arg%d, &client->err);`, ii, t.TypeName, i+1)
+			fmt.Fprint(&builder, "\n\t")
+			fmt.Fprint(&builder, `if (client_failed(client)) return`)
+			if method.RetType.TypeName == "void" {
+				fmt.Fprint(&builder, ";")
+			} else {
+				fmt.Fprint(&builder, " v;")
+			}
+			fmt.Fprint(&builder, "\n\t")
+			fmt.Fprintf(&builder, `data = cJSON_Print(node%d);`, ii)
+			fmt.Fprint(&builder, "\n\t")
+			fmt.Fprintf(&builder, `argument_init_with_option(req.args + %d, %d, "%s", data, strlen(data));`, i, t.TypeKind, t.TypeName)
 			res = append(res, builder.String())
 		}
 		var str string
