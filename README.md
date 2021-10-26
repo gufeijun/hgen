@@ -264,8 +264,8 @@ options：
   -dir string
     	the dirpath where the generated source code files will be placed (default "gfj")
   -lang string
-    	the target languege the IDL will be compliled to (default "go")
+    	the target languege the IDL will be compliled to (default "c")
 ```
 
-目前仅支持golang语言，所以lang参数无需指定。dir参数用于指定生成的代码文件存放路径，默认为gfj。
+目前已支持go语言以及c语言，lang参数用于指定语言。dir参数用于指定生成的代码文件存放路径，默认为gfj。
 
