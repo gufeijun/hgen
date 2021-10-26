@@ -44,6 +44,7 @@ func genServerHeaderFile(conf *config.ComplileConfig) error {
 	genDef(hte.W, conf.SrcIDL, "SERVER")
 	genHeaderFileIncludes(hte, []string{`<stdint.h>`, `"error.h"`, `"server.h"`})
 	genStructs(hte)
+	genStructCreate(hte)
 	genServiceMethod(hte)
 	fmt.Fprint(hte.W, "#endif")
 	return hte.Err
@@ -59,7 +60,7 @@ func genClientHeaderFile(conf *config.ComplileConfig) error {
 	genDef(cte.W, conf.SrcIDL, "CLIENT")
 	genHeaderFileIncludes(cte, []string{`<stdint.h>`, `"client.h"`})
 	genStructs(cte)
-	genDestroyResponse(cte)
+	genStructDelete(cte)
 	genClientMethod(cte)
 	fmt.Fprint(cte.W, "\n#endif")
 	return cte.Err
@@ -73,7 +74,7 @@ func genServerSourceFile(conf *config.ComplileConfig) error {
 	defer cte.Close()
 	genStatement(cte)
 	genSourceFileIncludes(cte, []string{"stdint.h", "stdlib.h", "string.h"}, []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}, "server")
-	genArgumentInitAndDestroy(cte, false)
+	genArgumentInitAndDestroy(cte, true)
 	genErrorMacro(cte, "return")
 	genMashalFunc(cte)
 	genUnmarshalFunc(cte)
@@ -90,12 +91,36 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 	defer cte.Close()
 	genStatement(cte)
 	genSourceFileIncludes(cte, []string{"stdint.h", "string.h", "stdlib.h"}, []string{"argument.h", "cJSON.h", "error.h", "client.h"}, "client")
-	genArgumentInitAndDestroy(cte, true)
+	genArgumentInitAndDestroy(cte, false)
 	genErrorMacro(cte, "goto end")
 	genMashalFunc(cte)
 	genUnmarshalFunc(cte)
 	genCallFuncs(cte)
 	return cte.Err
+}
+
+func genStructDelete(te *utils.TmplExec) {
+	var data []string
+	utils.TraverseRespArgs(func(t *service.Type) bool {
+		if t.TypeKind != service.TypeKindMessage {
+			return false
+		}
+		data = append(data, t.TypeName)
+		return false
+	})
+	te.Execute(structDeleteTmpl, data)
+}
+
+func genStructCreate(te *utils.TmplExec) {
+	var data []string
+	utils.TraverseRespArgs(func(t *service.Type) bool {
+		if t.TypeKind != service.TypeKindMessage {
+			return false
+		}
+		data = append(data, t.TypeName)
+		return false
+	})
+	te.Execute(structCreateTmpl, data)
 }
 
 func genCallFuncs(te *utils.TmplExec) {
@@ -220,21 +245,20 @@ func genRegisterService(te *utils.TmplExec) {
 	}
 }
 
-func genArgumentInitAndDestroy(te *utils.TmplExec, noStatement bool) {
+func genArgumentInitAndDestroy(te *utils.TmplExec, serverSide bool) {
 	te.W.Write([]byte{'\n'})
-	if !noStatement {
-		for _, m := range service.GlobalAsset.Messages {
-			fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_init(struct %s*);\n", m.Name, m.Name)
-			fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_destroy(struct %s*);\n", m.Name, m.Name)
-		}
+	for _, m := range service.GlobalAsset.Messages {
+		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_init(struct %s*);\n", m.Name, m.Name)
+		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_destroy(struct %s*);\n", m.Name, m.Name)
 	}
 
 	for _, m := range service.GlobalAsset.Messages {
 		data := &struct {
+			ServerSide  bool
 			Name        string
 			MessageMems []*service.Member
 			StringMems  []*service.Member
-		}{Name: m.Name}
+		}{Name: m.Name, ServerSide: serverSide}
 		for _, mem := range m.Mems {
 			if mem.MemType.TypeKind != service.TypeKindMessage {
 				if mem.MemType.TypeName == "string" {

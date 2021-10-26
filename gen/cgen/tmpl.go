@@ -17,6 +17,8 @@ var (
 	handlerTmpl                = must(_handlerTmpl)
 	clientMethodTmpl           = must(_clientMethodTmpl)
 	clientCallTmpl             = must(_clientCallTmpl)
+	structCreateTmpl           = must(_structCreateTmpl)
+	structDeleteTmpl           = must(_structDeleteTmpl)
 )
 
 func must(tmpl string) *template.Template {
@@ -102,6 +104,18 @@ void {{.Name}}_destroy(struct {{.Name}}* data)
 	{{- range .StringMems}}
 	free(data->{{.MemName}});
 	{{- end }}
+}
+{{- end }}
+{{- if .ServerSide }}
+struct {{.Name}}* {{.Name}}_create() {
+	struct {{.Name}}* v = malloc(sizeof(struct {{.Name}}));
+	{{.Name}}_init(v);
+	return v;
+}
+{{- else }}
+void {{.Name}}_delete(struct {{.Name}}* arg) {
+	{{.Name}}_destroy(arg);
+	free(arg);
 }
 {{- end -}}
 `
@@ -237,6 +251,18 @@ end:
 	{{- end }}
     return v;
 }
+`
+
+const _structCreateTmpl = `
+{{- range . }}
+struct {{.}}* {{.}}_create();
+{{- end }}
+`
+
+const _structDeleteTmpl = `
+{{- range .}}
+void {{.}}_delete(struct {{.}}*);
+{{- end }}
 `
 
 const _macroTmpl = `
