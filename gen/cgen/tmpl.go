@@ -81,19 +81,25 @@ void register_{{.Name}}_service(server_t* svr) {
 
 const _argumentInitAndDestroyTmpl = `
 void {{.Name}}_init(struct {{.Name}}* data)
-{{- if eq (len .MessageMems) 0 }} {}
+{{- if and (eq (len .MessageMems) 0) (eq (len .StringMems) 0) }} {}
 {{- else }} {
 	{{- range .MessageMems}}
 	data->{{.MemName}} = malloc(sizeof(struct {{.MemType.TypeName}}));
 	{{.MemType.TypeName}}_init(data->{{.MemName}});
 	{{- end }}
+	{{- range .StringMems}}
+	data->{{.MemName}} = NULL;
+	{{- end }}
 }
 {{- end }}
 void {{.Name}}_destroy(struct {{.Name}}* data)
-{{- if eq (len .MessageMems) 0 }} {}
+{{- if and (eq (len .MessageMems) 0) (eq (len .StringMems) 0) }} {}
 {{- else }} {
 	{{- range .MessageMems}}
 	{{.MemType.TypeName}}_destroy(data->{{.MemName}});
+	free(data->{{.MemName}});
+	{{- end }}
+	{{- range .StringMems}}
 	free(data->{{.MemName}});
 	{{- end }}
 }

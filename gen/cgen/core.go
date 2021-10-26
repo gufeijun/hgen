@@ -233,9 +233,13 @@ func genArgumentInitAndDestroy(te *utils.TmplExec, noStatement bool) {
 		data := &struct {
 			Name        string
 			MessageMems []*service.Member
+			StringMems  []*service.Member
 		}{Name: m.Name}
 		for _, mem := range m.Mems {
 			if mem.MemType.TypeKind != service.TypeKindMessage {
+				if mem.MemType.TypeName == "string" {
+					data.StringMems = append(data.StringMems, mem)
+				}
 				continue
 			}
 			data.MessageMems = append(data.MessageMems, mem)
