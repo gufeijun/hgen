@@ -56,7 +56,7 @@ func (ew *errWriter) Write(p []byte) (n int, err error) {
 }
 
 func GenFilePath(srcIDL string, outdir string, suffix string) string {
-	index := strings.Index(srcIDL, ".")
+	index := strings.LastIndex(srcIDL, ".")
 	if index != -1 {
 		srcIDL = srcIDL[:index]
 	}
