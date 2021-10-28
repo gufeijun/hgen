@@ -112,11 +112,21 @@ func buildCallHandler(method *service.Method) string {
 			args += ", "
 		}
 	}
+	if method.RetType.TypeName == "void" {
+		return fmt.Sprintf("await impl.%s(%s);", method.MethodName, args)
+	}
 	return fmt.Sprintf("let res = await impl.%s(%s);", method.MethodName, args)
 }
 
 func buildRespDesc(method *service.Method) *respDesc {
 	t := method.RetType
+	if t.TypeName == "void" {
+		return &respDesc{
+			TypeKind: service.TypeKindNoRTN,
+			Name:     "",
+			Data:     `""`,
+		}
+	}
 	if t.TypeName == "string" {
 		return &respDesc{
 			TypeKind: service.TypeKindNormal,
