@@ -55,7 +55,7 @@ func buildRequestArgs(reqTypes []*service.Type) string {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
-		builder.WriteString(fmt.Sprintf("arg%d %s", i+1, t))
+		fmt.Fprintf(&builder, "arg%d %s", i+1, t)
 	}
 	return builder.String()
 }
@@ -63,7 +63,7 @@ func buildRequestArgs(reqTypes []*service.Type) string {
 func toGolangMethod(m *service.Method) (method string) {
 	var builder strings.Builder
 	types := toGolangTypes(append([]*service.Type{m.RetType}, m.ReqTypes...), false)
-	builder.WriteString(fmt.Sprintf("%s(", m.MethodName))
+	fmt.Fprintf(&builder, "%s(", m.MethodName)
 	if len(types) != 1 {
 		for i := 1; i < len(types); i++ {
 			if i != 1 {
@@ -76,9 +76,9 @@ func toGolangMethod(m *service.Method) (method string) {
 	if types[0] == "void" {
 		builder.WriteString("error")
 	} else if m.RetType.TypeKind == service.TypeKindStream {
-		builder.WriteString(fmt.Sprintf("(stream %s, onFinish func(), err error)", types[0]))
+		fmt.Fprintf(&builder, "(stream %s, onFinish func(), err error)", types[0])
 	} else {
-		builder.WriteString(fmt.Sprintf("(%s, error)", types[0]))
+		fmt.Fprintf(&builder, "(%s, error)", types[0])
 	}
 	return builder.String()
 }

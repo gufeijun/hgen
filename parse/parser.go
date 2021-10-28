@@ -79,7 +79,7 @@ func (p *Parser) parse() (err error) {
 		}
 		for i := 0; i < len(line); i++ {
 			// we treat Parentheses and comma as white space to facilitate grammar analysis
-			if line[i] == '(' || line[i] == ')' || line[i] == ',' || line[i] == '\t' {
+			if line[i] == '(' || line[i] == ')' || line[i] == ',' || line[i] == '\t' || line[i] == ';' {
 				line[i] = ' '
 			}
 		}
