@@ -43,7 +43,7 @@ const _registerServiceTmpl = `
 function register{{.Name}}Service(svr, impl) {
 	{{- $name:= .Name }}
 	checkImplements(impl, "{{.Name}}", [{{.MethodsName}}]);
-	svr.register(svr, {
+	svr.register({
 		name: "{{.Name}}",
 		methods: {
 			{{- range .Methods}}

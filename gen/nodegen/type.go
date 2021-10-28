@@ -45,7 +45,7 @@ func buildNodeMethod(method *service.Method) *methodDesc {
 	}
 	signature.WriteByte(')')
 	if name := method.RetType.TypeName; name != "void" {
-		fmt.Fprintf(&desc, "\n\t// retn: %s", name)
+		fmt.Fprintf(&desc, "\n\t// ret:  %s", name)
 	}
 	return &methodDesc{
 		Desc:      desc.String(),
@@ -70,7 +70,7 @@ func buildChecks(method *service.Method) []string {
 	var builder strings.Builder
 	var checks []string
 	for i, t := range method.ReqTypes {
-		fmt.Fprintf(&builder, `if (args[%d].name != %s`, i, t.TypeName)
+		fmt.Fprintf(&builder, `if (args[%d].name != "%s"`, i, t.TypeName)
 		if t.TypeKind == service.TypeKindNormal && t.TypeName != "string" {
 			fmt.Fprintf(&builder, ` || args[%d].data.length != %d`, i, utils.TypeLength[t.TypeName])
 		}
@@ -90,7 +90,7 @@ func buildUnmarshalArgs(method *service.Method) []string {
 		} else if t.TypeKind == service.TypeKindMessage {
 			fmt.Fprintf(&builder, `let arg%d = JSON.parse(args[%d].data);`, i, i)
 		} else {
-			fmt.Fprintf(&builder, `let arg%d = Buffer.from(arg[%d].data);`, i, i)
+			fmt.Fprintf(&builder, `let arg%d = Buffer.from(args[%d].data);`, i, i)
 			fmt.Fprint(&builder, "\n\t\t")
 			fmt.Fprintf(&builder, `arg%d = Number(arg%d.%s());`, i, i, unmarshalMap[t.TypeName])
 		}
