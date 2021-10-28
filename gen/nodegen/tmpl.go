@@ -7,6 +7,7 @@ var (
 	serviceInterfaceTmpl = must(_serviceInterfaceTmpl)
 	registerServiceTmpl  = must(_registerServiceTmpl)
 	moduleExportsTmpl    = must(_moduleExportsTmpl)
+	handlerTmpl          = must(_handlerTmpl)
 )
 
 func must(tmpl string) *template.Template {
@@ -59,5 +60,27 @@ module.exports = {
 	register{{.}}Service,
 	{{.}}Interface,
 {{- end }}
+}
+`
+
+const _handlerTmpl = `
+function {{.FuncName}}(impl) {
+	return async args => {
+        if (args.length != {{.ArgCnt}}) throw "invalid argument cnt";
+		{{- range .Checks }}
+		{{.}}
+		{{- end }}
+		{{- range .UnmarshalArgs }}
+		{{.}}
+		{{- end }}
+		{{.CallHandler}}
+		{{.Resp.Prepare}}
+		let resp = {
+			typeKind: {{.Resp.TypeKind}},
+			name: "{{.Resp.Name}}",
+			data: {{.Resp.Data}},
+		};
+		return resp;
+	};
 }
 `

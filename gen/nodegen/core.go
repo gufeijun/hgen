@@ -48,7 +48,34 @@ func genCheckImplementsFunc(te *utils.TmplExec) {
 	fmt.Fprint(te.W, checkImplementsTmpl)
 }
 
+type respDesc struct {
+	Prepare  string
+	TypeKind int
+	Name     string
+	Data     string
+}
+
 func genHandlers(te *utils.TmplExec) {
+	type Data struct {
+		FuncName      string
+		ArgCnt        int
+		Checks        []string
+		UnmarshalArgs []string
+		CallHandler   string
+		Resp          *respDesc
+	}
+	utils.TraverseMethod(func(method *service.Method) bool {
+		data := &Data{
+			FuncName:      fmt.Sprintf("%s%sHandler", method.Service.Name, method.MethodName),
+			ArgCnt:        len(method.ReqTypes),
+			Checks:        buildChecks(method),
+			UnmarshalArgs: buildUnmarshalArgs(method),
+			CallHandler:   buildCallHandler(method),
+			Resp:          buildRespDesc(method),
+		}
+		te.Execute(handlerTmpl, data)
+		return false
+	})
 }
 
 type methodDesc struct {

@@ -2,6 +2,7 @@ package cgen
 
 import (
 	"fmt"
+	"gufeijun/hustgen/gen/utils"
 	"gufeijun/hustgen/service"
 	"strings"
 )
@@ -19,19 +20,6 @@ var IDLtoCType = map[string]string{
 	"float64": "double",
 	"void":    "void",
 	"string":  "char*",
-}
-
-var typeLength = map[string]int{
-	"int8":    1,
-	"int16":   2,
-	"int32":   4,
-	"int64":   8,
-	"uint8":   1,
-	"uint16":  2,
-	"uint32":  4,
-	"uint64":  8,
-	"float32": 4,
-	"float64": 8,
 }
 
 func toClangType(t *service.Type, pointer bool) string {
@@ -121,7 +109,7 @@ func buildArgChecks(method *service.Method) string {
 		if t.TypeKind == service.TypeKindMessage || t.TypeName == "string" {
 			continue
 		}
-		str = fmt.Sprintf(`CHECK_ARG_SIZE("%s", %d, req->args[%d].data_len)`, t.TypeName, typeLength[t.TypeName], i)
+		str = fmt.Sprintf(`CHECK_ARG_SIZE("%s", %d, req->args[%d].data_len)`, t.TypeName, utils.TypeLength[t.TypeName], i)
 		builder.WriteString(str)
 	}
 	return builder.String()
@@ -154,7 +142,7 @@ func buildResp(method *service.Method) string {
 	} else if t.TypeName == "void" {
 		builder.WriteString(`build_resp(resp, 4, "", 0, NULL);`)
 	} else {
-		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "%s", %d, (char*)&res);`, t.TypeName, typeLength[t.TypeName]))
+		builder.WriteString(fmt.Sprintf(`build_resp(resp, 0, "%s", %d, (char*)&res);`, t.TypeName, utils.TypeLength[t.TypeName]))
 	}
 	return builder.String()
 }
@@ -236,7 +224,7 @@ func buildCallArgInits(method *service.Method) (res []string) {
 				i, t.TypeKind, t.TypeName, i+1, i+1)
 		} else if t.TypeKind == service.TypeKindNormal {
 			str = fmt.Sprintf(`argument_init_with_option(req.args + %d, %d, "%s", &arg%d, %d);`,
-				i, t.TypeKind, t.TypeName, i+1, typeLength[t.TypeName])
+				i, t.TypeKind, t.TypeName, i+1, utils.TypeLength[t.TypeName])
 		}
 		res = append(res, str)
 	}
@@ -252,7 +240,7 @@ func buildRespCheck(method *service.Method) string {
 	fmt.Fprintf(&builder, `CHECK_ARG_TYPE("%s", resp.type_name)`, ret.TypeName)
 	builder.WriteByte('\n')
 	if ret.TypeKind == service.TypeKindNormal && ret.TypeName != "string" {
-		fmt.Fprintf(&builder, `	CHECK_ARG_SIZE("%s", %d, resp.data_len)`, ret.TypeName, typeLength[ret.TypeName])
+		fmt.Fprintf(&builder, `	CHECK_ARG_SIZE("%s", %d, resp.data_len)`, ret.TypeName, utils.TypeLength[ret.TypeName])
 		builder.WriteByte('\n')
 	}
 	return builder.String()
@@ -265,7 +253,7 @@ func buildRespUnmarshal(method *service.Method) string {
 	free_data = 0;`
 	}
 	if ret.TypeKind == service.TypeKindNormal {
-		return fmt.Sprintf(`	memcpy(&v, resp.data, %d);`, typeLength[ret.TypeName])
+		return fmt.Sprintf(`	memcpy(&v, resp.data, %d);`, utils.TypeLength[ret.TypeName])
 	}
 	return fmt.Sprintf(`	v = malloc(sizeof(struct %s));
 	%s_init(v);
