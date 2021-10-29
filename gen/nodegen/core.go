@@ -20,8 +20,35 @@ func Gen(conf *config.ComplileConfig) error {
 	genHandlers(te)
 	genCheckImplementsFunc(te)
 	genRegisterFunc(te)
+	genClientClass(te)
 	genExports(te)
 	return te.Err
+}
+
+type clientMethod struct {
+	Service      string
+	MethodDesc   *methodDesc
+	Name         string
+	ArgCnt       int
+	MashalArgs   []string
+	RespCheck    string
+	UnmashalResp string
+}
+
+func genClientClass(te *utils.TmplExec) {
+	type Data struct {
+		Service string
+		Methods []*clientMethod
+	}
+	for _, s := range service.GlobalAsset.Services {
+		data := &Data{
+			Service: s.Name,
+		}
+		for _, method := range s.Methods {
+			data.Methods = append(data.Methods, buildClientMethod(method))
+		}
+		te.Execute(clientClassTmpl, data)
+	}
 }
 
 func genExports(te *utils.TmplExec) {

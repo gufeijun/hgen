@@ -8,6 +8,7 @@ var (
 	registerServiceTmpl  = must(_registerServiceTmpl)
 	moduleExportsTmpl    = must(_moduleExportsTmpl)
 	handlerTmpl          = must(_handlerTmpl)
+	clientClassTmpl      = must(_clientClassTmpl)
 )
 
 func must(tmpl string) *template.Template {
@@ -59,6 +60,7 @@ module.exports = {
 {{- range . }}
 	register{{.}}Service,
 	{{.}}Interface,
+	{{.}}Client,
 {{- end }}
 }
 `
@@ -82,5 +84,41 @@ function {{.FuncName}}(impl) {
 		};
 		return resp;
 	};
+}
+`
+
+const _clientClassTmpl = `
+class {{.Service}}Client {
+	constructor(conn) {
+		this.conn = conn;
+		this.service = "{{.Service}}";
+	}
+	{{- range .Methods }}
+	{{.MethodDesc.Desc}}
+	async {{.MethodDesc.Signature}} {
+		let req = {
+			service: this.service,
+			method: "{{.Name}}",
+			argCnt: {{.ArgCnt}},
+			args: [],
+		};
+		{{- range .MashalArgs }}
+		{{.}}
+		{{- end}}
+        return new Promise((resolve, reject) => {
+            this.conn.call(req, (resp, err) => {
+                if (err != null) {
+                    reject(err);
+                    return;
+                }
+				if ({{.RespCheck}}){
+					reject(new Error("invalid response type"));
+					return;
+				}
+				{{.UnmashalResp}}
+            })
+        })
+	}
+	{{- end }}
 }
 `

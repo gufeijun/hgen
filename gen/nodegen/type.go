@@ -155,3 +155,67 @@ func buildRespDesc(method *service.Method) *respDesc {
 		Data:     "data",
 	}
 }
+
+// type clientMethod struct {
+// 	MashalArgs   []string
+// 	RespCheck    string
+// 	UnmashalResp string
+// }
+
+func buildMarshalArg(i int, t *service.Type) string {
+	const format = `req.args.push({
+            typeKind: %d,
+            name: '%s',
+            data: %s,
+        })`
+	if t.TypeName == "string" {
+		return fmt.Sprintf(format, t.TypeKind, t.TypeName, fmt.Sprintf("arg%d", i))
+	}
+	if t.TypeKind == service.TypeKindMessage {
+		return fmt.Sprintf(format, t.TypeKind, t.TypeName, fmt.Sprintf("JSON.stringify(arg%d)", i))
+	}
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "let buf%d = Buffer.alloc(%d)\n", i, utils.TypeLength[t.TypeName])
+	src := fmt.Sprintf("arg%d", i)
+	if t.TypeName == "uint64" || t.TypeName == "int64" {
+		src = fmt.Sprintf("BigInt(%s)", src)
+	}
+	fmt.Fprintf(&builder, "\t\tbuf%d.%s(%s)\n\t\t", i, marshalMap[t.TypeName], src)
+	fmt.Fprintf(&builder, format, t.TypeKind, t.TypeName, fmt.Sprintf("buf%d", i))
+	return builder.String()
+}
+
+func buildRespCheck(method *service.Method) string {
+	var builder strings.Builder
+	ret := method.RetType
+	fmt.Fprintf(&builder, `resp.name != "%s"`, ret.TypeName)
+	if ret.TypeKind == service.TypeKindNormal && ret.TypeName != "string" {
+		fmt.Fprintf(&builder, ` || resp.dataLen != %d`, utils.TypeLength[ret.TypeName])
+	}
+	return builder.String()
+}
+
+func buildUnmashalResp(t *service.Type) string {
+	if t.TypeName == "string" {
+		return "resolve(resp.data);"
+	}
+	if t.TypeKind == service.TypeKindMessage {
+		return "resolve(JSON.parse(resp.data));"
+	}
+	return fmt.Sprintf(`resolve(Number(Buffer.from(resp.data).%s()));`, unmarshalMap[t.TypeName])
+}
+
+func buildClientMethod(method *service.Method) *clientMethod {
+	data := new(clientMethod)
+	data.Service = method.Service.Name
+	data.Name = method.MethodName
+	data.MethodDesc = buildNodeMethod(method)
+	data.ArgCnt = len(method.ReqTypes)
+	for i, t := range method.ReqTypes {
+		data.MashalArgs = append(data.MashalArgs, buildMarshalArg(i+1, t))
+	}
+	data.RespCheck = buildRespCheck(method)
+	data.UnmashalResp = buildUnmashalResp(method.RetType)
+
+	return data
+}
