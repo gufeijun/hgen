@@ -188,9 +188,14 @@ func buildMarshalArg(i int, t *service.Type) string {
 func buildRespCheck(method *service.Method) string {
 	var builder strings.Builder
 	ret := method.RetType
-	fmt.Fprintf(&builder, `resp.name != "%s"`, ret.TypeName)
+	if ret.TypeName != "void" {
+		fmt.Fprintf(&builder, `resp.name != "%s"`, ret.TypeName)
+	}
 	if ret.TypeKind == service.TypeKindNormal && ret.TypeName != "string" {
-		fmt.Fprintf(&builder, ` || resp.dataLen != %d`, utils.TypeLength[ret.TypeName])
+		if ret.TypeName != "void" {
+			fmt.Fprintf(&builder, " || ")
+		}
+		fmt.Fprintf(&builder, `resp.dataLen != %d`, utils.TypeLength[ret.TypeName])
 	}
 	return builder.String()
 }
@@ -198,6 +203,9 @@ func buildRespCheck(method *service.Method) string {
 func buildUnmashalResp(t *service.Type) string {
 	if t.TypeName == "string" {
 		return "resolve(resp.data);"
+	}
+	if t.TypeName == "void" {
+		return "resolve();"
 	}
 	if t.TypeKind == service.TypeKindMessage {
 		return "resolve(JSON.parse(resp.data));"
