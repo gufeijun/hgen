@@ -90,13 +90,11 @@ func buildUnmarshalArgs(method *service.Method) []string {
 	var builder strings.Builder
 	for i, t := range method.ReqTypes {
 		if t.TypeName == "string" {
-			fmt.Fprintf(&builder, `let arg%d = args[%d].data;`, i, i)
+			fmt.Fprintf(&builder, `let arg%d = args[%d].data.toString();`, i, i)
 		} else if t.TypeKind == service.TypeKindMessage {
-			fmt.Fprintf(&builder, `let arg%d = JSON.parse(args[%d].data);`, i, i)
+			fmt.Fprintf(&builder, `let arg%d = JSON.parse(args[%d].data.toString());`, i, i)
 		} else {
-			fmt.Fprintf(&builder, `let arg%d = Buffer.from(args[%d].data);`, i, i)
-			fmt.Fprint(&builder, "\n\t\t")
-			fmt.Fprintf(&builder, `arg%d = Number(arg%d.%s());`, i, i, unmarshalMap[t.TypeName])
+			fmt.Fprintf(&builder, `let arg%d = Number(args[%d].data.%s());`, i, i, unmarshalMap[t.TypeName])
 		}
 		data = append(data, builder.String())
 		builder.Reset()
@@ -202,15 +200,15 @@ func buildRespCheck(method *service.Method) string {
 
 func buildUnmashalResp(t *service.Type) string {
 	if t.TypeName == "string" {
-		return "resolve(resp.data);"
+		return "resolve(resp.data.toString());"
 	}
 	if t.TypeName == "void" {
 		return "resolve();"
 	}
 	if t.TypeKind == service.TypeKindMessage {
-		return "resolve(JSON.parse(resp.data));"
+		return "resolve(JSON.parse(resp.data.toString()));"
 	}
-	return fmt.Sprintf(`resolve(Number(Buffer.from(resp.data).%s()));`, unmarshalMap[t.TypeName])
+	return fmt.Sprintf(`resolve(Number(resp.data.%s()));`, unmarshalMap[t.TypeName])
 }
 
 func buildClientMethod(method *service.Method) *clientMethod {
