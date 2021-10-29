@@ -19,6 +19,8 @@ var (
 	clientCallTmpl             = must(_clientCallTmpl)
 	structCreateTmpl           = must(_structCreateTmpl)
 	structDeleteTmpl           = must(_structDeleteTmpl)
+	structCloneHTmpl           = must(_structCloneHTmpl)
+	structCloneCTmpl           = must(_structCloneCTmpl)
 )
 
 func must(tmpl string) *template.Template {
@@ -52,6 +54,7 @@ struct {{ .Name }}{
 `
 
 const _serviceMethodTmpl = `
+
 // server should implement following functions for service: {{.ServiceName}}
 //**********************************************************
 {{- range .Methods }}
@@ -269,6 +272,19 @@ const _structDeleteTmpl = `
 void {{.}}_delete(struct {{.}}*);
 {{- end }}
 `
+
+const _structCloneHTmpl = `
+struct {{.}}* {{.}}_clone(struct {{.}}*);`
+
+const _structCloneCTmpl = `
+struct {{.Name}}* {{.Name}}_clone(struct {{.Name}}* src) {
+	if (src == NULL) return NULL;
+	struct {{.Name}}* dst = malloc(sizeof(struct {{.Name}}));
+	{{- range .Assignments }}		
+	{{.}}
+	{{- end }}
+	return dst;
+}`
 
 const _macroTmpl = `
 #define invalid_argcnt(err, want, got) \

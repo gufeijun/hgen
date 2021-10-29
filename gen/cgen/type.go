@@ -260,3 +260,13 @@ func buildRespUnmarshal(method *service.Method) string {
 	%s_unmarshal(v, resp.data, &client->err);
 	`, ret.TypeName, ret.TypeName, ret.TypeName)
 }
+
+func buildAssignment(mem *service.Member) string {
+	if mem.MemType.TypeName == "string" {
+		return fmt.Sprintf("dst->%s = src->%s == NULL? NULL : strdup(src->%s);", mem.MemName, mem.MemName, mem.MemName)
+	}
+	if mem.MemType.TypeKind == service.TypeKindNormal {
+		return fmt.Sprintf("dst->%s = src->%s;", mem.MemName, mem.MemName)
+	}
+	return fmt.Sprintf("dst->%s = %s_clone(src->%s);", mem.MemName, mem.MemType.TypeName, mem.MemName)
+}

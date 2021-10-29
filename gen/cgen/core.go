@@ -45,6 +45,7 @@ func genServerHeaderFile(conf *config.ComplileConfig) error {
 	genHeaderFileIncludes(hte, []string{`<stdint.h>`, `"error.h"`, `"server.h"`})
 	genStructs(hte)
 	genStructCreate(hte)
+	genStructCloneH(hte)
 	genServiceMethod(hte)
 	fmt.Fprint(hte.W, "#endif")
 	return hte.Err
@@ -75,6 +76,7 @@ func genServerSourceFile(conf *config.ComplileConfig) error {
 	genStatement(cte)
 	genSourceFileIncludes(cte, []string{"stdint.h", "stdlib.h", "string.h"}, []string{"argument.h", "cJSON.h", "error.h", "request.h", "server.h"}, "server")
 	genArgumentInitAndDestroy(cte, true)
+	genStructCloneC(cte)
 	genErrorMacro(cte, "return")
 	genMashalFunc(cte, true)
 	genUnmarshalFunc(cte)
@@ -97,6 +99,25 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 	genUnmarshalFunc(cte)
 	genCallFuncs(cte)
 	return cte.Err
+}
+
+func genStructCloneC(te *utils.TmplExec) {
+	for _, t := range service.GlobalAsset.Messages {
+		data := &struct {
+			Name        string
+			Assignments []string
+		}{Name: t.Name}
+		for _, mem := range t.Mems {
+			data.Assignments = append(data.Assignments, buildAssignment(mem))
+		}
+		te.Execute(structCloneCTmpl, data)
+	}
+}
+
+func genStructCloneH(te *utils.TmplExec) {
+	for _, t := range service.GlobalAsset.Messages {
+		te.Execute(structCloneHTmpl, t.Name)
+	}
 }
 
 func genStructDelete(te *utils.TmplExec) {
