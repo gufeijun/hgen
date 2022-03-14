@@ -1,8 +1,14 @@
 ![github](https://img.shields.io/github/license/gufeijun/hgen) [![Build Status](https://app.travis-ci.com/gufeijun/hgen.svg?branch=master)](https://app.travis-ci.com/gufeijun/hgen)
 
-# 介绍
+# 相关
 
-hgen是分布式系统与中间件课程的大作业(自己开发一个rpc框架)的编译器部分。
+搭配以下RPC库使用：
+
++ Go：https://github.com/gufeijun/rpch-go。
++ C：https://github.com/gufeijun/rpch-c。
++ Node：https://github.com/gufeijun/rpch-node。
+
+# 介绍
 
 不同编程语言有不同的语法规则，甚至有的语言有自己独有的序列化方式，如golang的gob、python的pickle等。如果想开发一个跨语言的RPC框架，就必须屏蔽掉不同语言之间的区别，提供一种统一的网络协议格式、对象序列化方法以及接口描述方式。
 
@@ -267,5 +273,5 @@ options：
     	the target languege the IDL will be compliled to (default "c")
 ```
 
-目前已支持go语言以及c语言，lang参数用于指定语言。dir参数用于指定生成的代码文件存放路径，默认为gfj。
+目前已支持go语言、c语言以及Nodejs，lang参数用于指定语言。dir参数用于指定生成的代码文件存放路径，默认为gfj。
 
