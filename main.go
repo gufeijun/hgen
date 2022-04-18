@@ -2,9 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"gufeijun/hustgen/parse"
-	"io/ioutil"
 )
 
 var (
@@ -17,66 +14,66 @@ func init() {
 	flag.Parse()
 }
 
-func testToken() {
-	data, err := ioutil.ReadFile("./test.gfj")
-	if err != nil {
-		panic(err)
-	}
-	l, err := parse.NewLexer(data)
-	if err != nil {
-		panic(err)
-	}
-	for {
-		l.GetNextToken()
-		token := l.GetToken()
-		if token.Kind == parse.T_EOF {
-			break
-		}
-		switch token.Kind {
-		case parse.T_ID:
-			fmt.Printf("<ID,%s> %dth line", token.Value, token.Line)
-		case parse.T_CRLF:
-			fmt.Printf("<CRLF,-> %dth line", token.Line)
-		case parse.T_COMMA:
-			fmt.Printf("<COMMA,-> %dth line", token.Line)
-		case parse.T_MESSAGE:
-			fmt.Printf("<message,-> %dth line", token.Line)
-		case parse.T_SERVICE:
-			fmt.Printf("<service,-> %dth line", token.Line)
-		case parse.T_LEFTBRACE:
-			fmt.Printf("<{,-> %dth line", token.Line)
-		case parse.T_SEMICOLON:
-			fmt.Printf("<;,-> %dth line", token.Line)
-		case parse.T_RIGHTBRACE:
-			fmt.Printf("<},-> %dth line", token.Line)
-		case parse.T_LEFTBRACKET:
-			fmt.Printf("<(,-> %dth line", token.Line)
-		case parse.T_RIGHTBRACKET:
-			fmt.Printf("<),-> %dth line", token.Line)
-		}
-		fmt.Println()
-	}
+// func testToken() {
+// 	data, err := ioutil.ReadFile("./test.gfj")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	l, err := parse.NewLexer(data)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	for {
+// 		l.GetNextToken()
+// 		token := l.GetToken()
+// 		if token.Kind == parse.T_EOF {
+// 			break
+// 		}
+// 		switch token.Kind {
+// 		case parse.T_ID:
+// 			fmt.Printf("<ID,%s> %dth line", token.Value, token.Line)
+// 		case parse.T_CRLF:
+// 			fmt.Printf("<CRLF,-> %dth line", token.Line)
+// 		case parse.T_COMMA:
+// 			fmt.Printf("<COMMA,-> %dth line", token.Line)
+// 		case parse.T_MESSAGE:
+// 			fmt.Printf("<message,-> %dth line", token.Line)
+// 		case parse.T_SERVICE:
+// 			fmt.Printf("<service,-> %dth line", token.Line)
+// 		case parse.T_LEFTBRACE:
+// 			fmt.Printf("<{,-> %dth line", token.Line)
+// 		case parse.T_SEMICOLON:
+// 			fmt.Printf("<;,-> %dth line", token.Line)
+// 		case parse.T_RIGHTBRACE:
+// 			fmt.Printf("<},-> %dth line", token.Line)
+// 		case parse.T_LEFTBRACKET:
+// 			fmt.Printf("<(,-> %dth line", token.Line)
+// 		case parse.T_RIGHTBRACKET:
+// 			fmt.Printf("<),-> %dth line", token.Line)
+// 		}
+// 		fmt.Println()
+// 	}
 
-}
+// }
 
-func testPreHandle() {
-	data, err := ioutil.ReadFile("./test.gfj")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("-----------------------------------\n")
-	fmt.Printf("%s\n", data)
-	l, err := parse.NewLexer(data)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("-----------------------------------\n")
-	fmt.Printf("%s\n", l.GetCode())
-}
+// func testPreHandle() {
+// 	data, err := ioutil.ReadFile("./test.gfj")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Printf("-----------------------------------\n")
+// 	fmt.Printf("%s\n", data)
+// 	l, err := parse.NewLexer(data)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Printf("-----------------------------------\n")
+// 	fmt.Printf("%s\n", l.GetCode())
+// }
 
 func main() {
 	// testPreHandle()
-	testToken()
+	// testToken()
 
 	// conf := &config.ComplileConfig{
 	// 	TargetLang:   *lang,

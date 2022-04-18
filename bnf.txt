@@ -1,5 +1,5 @@
 // 非终结符：Code、Extra、Stmt、MsgStmt、Members、Member、ServiceStmt、Funcs、Func、ArgList、Args、Args'
-// 终结符：  ε、message、id、LeftBrace、RightBrace、service、CRLF、LeftBracket、RightBracket、Comma、Semicolon
+// 终结符：  ε、message、id、LeftBrace、RightBrace、service、CRLF、LeftBracket、RightBracket、Comma
 
 // LL(1)文法，沉降递归
 // 文法如下:
@@ -13,11 +13,11 @@
  7. MsgStmt     -> message id LeftBrace CRLF Member CRLF Members RightBrace
  8. Members     -> Member CRLF Members
  9. Members     -> ε
-10. Member      -> id id semicolon
+10. Member      -> id id
 11. ServiceStmt -> service id LeftBrace CRLF Func CRLF Funcs RightBrace
 12. Funcs       -> Func CRLF Funcs
 13. Funcs       -> ε
-14. Func        -> id id LeftBracket ArgList RightBracket Semicolon
+14. Func        -> id id LeftBracket ArgList RightBracket
 15. ArgList     -> Args
 16. ArgList     -> ε
 17. Args        -> id Args'

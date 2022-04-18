@@ -16,48 +16,23 @@ type lexer struct {
 	curToken Token
 	curLine  int
 
-	waitRightBrace   bool
-	needAddSemicolon bool
-	locationMap      []int
+	locationMap []int
 }
 
-//TODO delete
-func (l *lexer) GetToken() Token {
-	return l.curToken
-}
-
-//TODO delete
-func (l *lexer) GetCode() []byte {
-	return l.srcCode
-}
-
-func readLine(buff *bufio.Reader) ([]byte, error) {
-	line, isPrefix, err := buff.ReadLine()
-	if err != nil {
-		return line, err
+func newLexer(code []byte) (*lexer, error) {
+	var i int
+	for i = len(code) - 1; i >= 0 && (code[i] == ' ' || code[i] == '\r' || code[i] == '\n' || code[i] == '\t'); i-- {
 	}
-	var p []byte
-	for isPrefix {
-		p, isPrefix, err = buff.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				line = append(line, p...)
-				return line, err
-			}
-			return nil, err
-		}
-		line = append(line, p...)
+	// 去除结尾的空白
+	code = code[:i+1]
+	l := &lexer{
+		srcCode: code,
 	}
-	return line, nil
-}
-
-func emptyLine(line []byte) bool {
-	for i := 0; i < len(line); i++ {
-		if line[i] != ' ' && line[i] != '\t' {
-			return false
-		}
+	// 去除注释和多余的空白
+	if err := l.preHandleCode(); err != nil {
+		return nil, err
 	}
-	return true
+	return l, nil
 }
 
 // 代码预处理
@@ -100,23 +75,36 @@ func (l *lexer) preHandleCode() error {
 	return nil
 }
 
-func NewLexer(code []byte) (*lexer, error) {
-	var i int
-	for i = len(code) - 1; i >= 0 && (code[i] == ' ' || code[i] == '\r' || code[i] == '\n' || code[i] == '\t'); i-- {
+func readLine(buff *bufio.Reader) ([]byte, error) {
+	line, isPrefix, err := buff.ReadLine()
+	if err != nil {
+		return line, err
 	}
-	// 去除结尾的空白
-	code = code[:i+1]
-	l := &lexer{
-		srcCode: code,
+	var p []byte
+	for isPrefix {
+		p, isPrefix, err = buff.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				line = append(line, p...)
+				return line, err
+			}
+			return nil, err
+		}
+		line = append(line, p...)
 	}
-	// 去除注释和多余的空白
-	if err := l.preHandleCode(); err != nil {
-		return nil, err
-	}
-	return l, nil
+	return line, nil
 }
 
-func (l *lexer) GetNextToken() {
+func emptyLine(line []byte) bool {
+	for i := 0; i < len(line); i++ {
+		if line[i] != ' ' && line[i] != '\t' {
+			return false
+		}
+	}
+	return true
+}
+
+func (l *lexer) getNextToken() {
 	for l.curChar == 0 || l.curChar == ' ' || l.curChar == '\t' {
 		if l.cursor >= len(l.srcCode) {
 			l.curToken.Kind = T_EOF
@@ -135,10 +123,8 @@ func (l *lexer) GetNextToken() {
 		l.curToken.Kind = T_RIGHTBRACKET
 	case '{':
 		l.curToken.Kind = T_LEFTBRACE
-		l.waitRightBrace = true
 	case '}':
 		l.curToken.Kind = T_RIGHTBRACE
-		l.waitRightBrace = false
 	// case '\r':
 	// 	l.getNextChar()
 	// 	if l.curChar != '\n' {
@@ -147,11 +133,6 @@ func (l *lexer) GetNextToken() {
 	// 	}
 	// 	fallthrough
 	case '\n':
-		if l.needAddSemicolon {
-			l.curToken.Kind = T_SEMICOLON // 补分号token，方便语法解析
-			l.needAddSemicolon = false
-			goto end
-		}
 		l.curToken.Kind = T_CRLF
 		l.curLine++
 	case ',':
@@ -170,9 +151,6 @@ func (l *lexer) GetNextToken() {
 	default:
 		if !isLetter_(ch) {
 			l.logError()
-		}
-		if l.waitRightBrace {
-			l.needAddSemicolon = true
 		}
 		id := string(ch)
 		for {
