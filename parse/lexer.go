@@ -15,8 +15,16 @@ type lexer struct {
 	curChar  byte
 	curToken Token
 	curLine  int
+	curKth   int
 
 	locationMap []int
+	lines       []string
+}
+
+// TODO delete
+func (l *lexer) GetNextToken() Token {
+	l.getNextToken()
+	return l.curToken
 }
 
 func newLexer(code []byte) (*lexer, error) {
@@ -27,6 +35,7 @@ func newLexer(code []byte) (*lexer, error) {
 	code = code[:i+1]
 	l := &lexer{
 		srcCode: code,
+		curKth:  -1,
 	}
 	// 去除注释和多余的空白
 	if err := l.preHandleCode(); err != nil {
@@ -64,6 +73,7 @@ func (l *lexer) preHandleCode() error {
 		writeTo.Write([]byte("\n"))
 		// 记录新代码行号到旧代码行号的映射
 		l.locationMap = append(l.locationMap, curLine)
+		l.lines = append(l.lines, string(line))
 		if err == io.EOF {
 			break
 		}
@@ -114,17 +124,22 @@ func (l *lexer) getNextToken() {
 	}
 	// start:
 	ch := l.curChar
+	l.curToken.Kth = l.curKth
 	switch ch {
 	case '0':
 		l.curToken.Kind = T_EOF
 	case '(':
 		l.curToken.Kind = T_LEFTBRACKET
+		l.curToken.Length = 1
 	case ')':
 		l.curToken.Kind = T_RIGHTBRACKET
+		l.curToken.Length = 1
 	case '{':
 		l.curToken.Kind = T_LEFTBRACE
+		l.curToken.Length = 1
 	case '}':
 		l.curToken.Kind = T_RIGHTBRACE
+		l.curToken.Length = 1
 	// case '\r':
 	// 	l.getNextChar()
 	// 	if l.curChar != '\n' {
@@ -134,9 +149,10 @@ func (l *lexer) getNextToken() {
 	// 	fallthrough
 	case '\n':
 		l.curToken.Kind = T_CRLF
-		l.curLine++
+		defer func() { l.curLine++ }()
 	case ',':
 		l.curToken.Kind = T_COMMA
+		l.curToken.Length = 1
 	// case '/':
 	// 	// 处理注释
 	// 	l.getNextChar()
@@ -161,6 +177,7 @@ func (l *lexer) getNextToken() {
 			}
 			id += string(ch)
 		}
+		l.curToken.Length = len(id)
 		if id == "message" {
 			l.curToken.Kind = T_MESSAGE
 		} else if id == "service" {
@@ -173,7 +190,7 @@ func (l *lexer) getNextToken() {
 	}
 	l.getNextChar()
 end:
-	l.curToken.Line = l.locationMap[l.curLine] + 1
+	l.curToken.Line = l.curLine
 }
 
 func (l *lexer) logError() {
@@ -196,4 +213,9 @@ func (l *lexer) getNextChar() {
 	}
 	l.curChar = l.srcCode[l.cursor]
 	l.cursor++
+	if l.curChar == '\n' {
+		l.curKth = -1
+	} else {
+		l.curKth++
+	}
 }
