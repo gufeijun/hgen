@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"gufeijun/hustgen/parse"
 )
 
 var (
@@ -71,7 +73,39 @@ func init() {
 // 	fmt.Printf("%s\n", l.GetCode())
 // }
 
+func testInfos() {
+	parser := parse.NewParser("./test.gfj")
+	if err := parser.Parse(); err != nil {
+		panic(err)
+	}
+	infos := parser.Infos
+	msgs := infos.Messages
+	srvs := infos.Services
+	for _, msg := range msgs {
+		fmt.Printf("message %s{\n", msg.Name)
+		for _, mem := range msg.Mems {
+			fmt.Printf("\t%s %s\n", mem.MemType.Name, mem.MemName)
+		}
+		fmt.Println("}")
+	}
+	for _, srv := range srvs {
+		fmt.Printf("service %s{\n", srv.Name)
+		for _, met := range srv.Methods {
+			fmt.Printf("\t%s %s(", met.RetType.Name, met.Name)
+			for i, arg := range met.ReqTypes {
+				fmt.Printf("%s", arg.Name)
+				if i != len(met.ReqTypes)-1 {
+					fmt.Printf(",")
+				}
+			}
+			fmt.Println(")")
+		}
+		fmt.Println("}")
+	}
+}
+
 func main() {
+	testInfos()
 	// testPreHandle()
 	// testToken()
 

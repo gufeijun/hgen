@@ -42,10 +42,10 @@ type Message struct {
 }
 
 type Method struct {
-	Service    *Service // 这是属于哪个服务的方法
-	RetType    *Type    // 方法返回值
-	ReqTypes   []*Type  // 方法请求参数
-	MethodName string   // 方法名
+	Service  *Service // 这是属于哪个服务的方法
+	RetType  *Type    // 方法返回值
+	ReqTypes []*Type  // 方法请求参数
+	Name     string   // 方法名
 }
 
 type Member struct {
@@ -54,7 +54,18 @@ type Member struct {
 }
 
 type Type struct {
-	TypeKind   uint16   //0 normal, 1 stream, 2 message
-	TypeName   string   // 类型名
-	FieldTypes []string // message是复合类型，这个就记录了所有成员
+	Kind uint16 // 0 normal, 1 stream, 2 message
+	Name string // 类型名
+}
+
+func newType(name string) *Type {
+	t := &Type{Name: name}
+	if _, ok := BuiltinTypes[name]; !ok {
+		t.Kind = TypeKindMessage
+	} else if name == "stream" || name == "istream" || name == "ostream" {
+		t.Kind = TypeKindStream
+	} else {
+		t.Kind = TypeKindNormal
+	}
+	return t
 }
