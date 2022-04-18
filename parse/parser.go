@@ -4,6 +4,7 @@ package parse
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 type Parser struct {
@@ -41,6 +42,13 @@ func (p *Parser) saveMessage(msg *Message) {
 func (p *Parser) initLexer() error {
 	if p.lexer != nil {
 		return nil
+	}
+	info, err := os.Stat(p.filepath)
+	if err != nil {
+		return err
+	}
+	if size := info.Size(); size >= (10 << 20) {
+		return fmt.Errorf("size of %s cannot exceed 10MB", p.filepath)
 	}
 	data, err := ioutil.ReadFile(p.filepath)
 	if err != nil {
