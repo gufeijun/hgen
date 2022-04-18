@@ -1,129 +1,49 @@
 package parse
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"gufeijun/hustgen/service"
-	"io"
-	"os"
-)
-
-const (
-	inNone = iota
-	inService
-	inMessage
+	"io/ioutil"
 )
 
 type Parser struct {
-	bufr       *bufio.Reader
-	filename   string
-	curService *service.Service
-	curMethod  *service.Method
-	nowParsing int //inService or inMessage
-	curMessage *service.Message
-	curLine    int
-	status     int
-	automaton  map[int][]int
+	filepath string
+	lexer    *lexer
+	token    *Token
 }
 
-func NewParser(filename string) *Parser {
+func NewParser(filepath string) *Parser {
 	return &Parser{
-		filename:  filename,
-		automaton: automaton,
-		status:    start,
+		filepath: filepath,
 	}
 }
 
-func (p *Parser) Parse() error {
-	file, err := os.Open(p.filename)
+func (p *Parser) initLexer() error {
+	if p.lexer != nil {
+		return nil
+	}
+	data, err := ioutil.ReadFile(p.filepath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	p.bufr = bufio.NewReader(file)
-	if err = p.parse(); err != nil {
+	p.lexer, err = NewLexer(data)
+	return err
+}
+
+func (p *Parser) nextToken() {
+	p.lexer.GetNextToken()
+}
+
+func (p *Parser) Parse() error {
+	if err := p.initLexer(); err != nil {
 		return err
 	}
-	return newChecker().check()
-}
+	p.token = &p.lexer.curToken
+	p.nextToken()
+	// TODO parser
 
-func isValidChars(p []byte) (int, bool) {
-	for i, ch := range p {
-		if !(ch <= 'z' && ch >= 'a' || ch <= 'Z' && ch >= 'A') &&
-			ch != '{' && ch != '}' && ch != ' ' &&
-			!(ch <= '9' && ch >= '0') {
-			return i, false
-		}
+	p.nextToken()
+	if p.token.Kind != T_EOF {
+		return fmt.Errorf("syntax error: want eof at end")
 	}
-	return 0, true
-}
-
-func (p *Parser) parse() (err error) {
-	p.curLine = 0
-	for {
-		line, _, err := p.bufr.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return err
-		}
-		p.curLine++
-		if len(line) == 0 {
-			continue
-		}
-		index := bytes.Index(line, []byte(`//`))
-		if index != -1 {
-			line = line[:index]
-		}
-		for i := 0; i < len(line); i++ {
-			// we treat Parentheses and comma as white space to facilitate grammar analysis
-			if line[i] == '(' || line[i] == ')' || line[i] == ',' || line[i] == '\t' || line[i] == ';' {
-				line[i] = ' '
-			}
-		}
-		if i, ok := isValidChars(line); !ok {
-			return fmt.Errorf("[line %d]invalid character: %c", p.curLine, line[i])
-		}
-		if err = p.parseLine(line); err != nil {
-			return fmt.Errorf("[line %d]%v", p.curLine, err)
-		}
-	}
-}
-
-func nextWord(line *[]byte) (string, error) {
-	i := 0
-	for i < len(*line) && (*line)[i] == ' ' {
-		i++
-	}
-	if i == len(*line) {
-		return "", nil
-	}
-	*line = (*line)[i:]
-	i = 0
-	for i < len(*line) && (*line)[i] != ' ' {
-		i++
-	}
-	str := string((*line)[:i])
-	*line = (*line)[i:]
-	return str, nil
-}
-
-func (p *Parser) parseLine(line []byte) error {
-	for {
-		word, err := nextWord(&line)
-		if err != nil {
-			return err
-		}
-		col := getCol(word)
-		p.status = p.automaton[p.status][col]
-		breaking, err := stateFuncMap[p.status](p, word, &line)
-		if err != nil {
-			return err
-		}
-		if breaking {
-			return nil
-		}
-	}
+	return nil
 }

@@ -1,0 +1,74 @@
+// 非终结符：Code、Extra、Stmt、MsgStmt、Members、Member、ServiceStmt、Funcs、Func、ArgList、Args、Args'
+// 终结符：  ε、message、id、LeftBrace、RightBrace、service、CRLF、LeftBracket、RightBracket、Comma、Semicolon
+
+// LL(1)文法，沉降递归
+// 文法如下:
+
+ 1. Code        -> Stmt Extra
+ 2. Code        -> Extra 
+ 3. Extra       -> CRLF Stmt Extra
+ 4. Extra       -> ε
+ 5. Stmt        -> MsgStmt
+ 6. Stmt        -> ServiceStmt
+ 7. MsgStmt     -> message id LeftBrace CRLF Member CRLF Members RightBrace
+ 8. Members     -> Member CRLF Members
+ 9. Members     -> ε
+10. Member      -> id id semicolon
+11. ServiceStmt -> service id LeftBrace CRLF Func CRLF Funcs RightBrace
+12. Funcs       -> Func CRLF Funcs
+13. Funcs       -> ε
+14. Func        -> id id LeftBracket ArgList RightBracket Semicolon
+15. ArgList     -> Args
+16. ArgList     -> ε
+17. Args        -> id Args'
+18. Args'       -> Comma id Args'
+19. Args'       -> ε
+
+// FIRST集
+FIRST(Code)         = {message, service, CRLF, ε}
+FIRST(Extra)        = {CRLF, ε}
+FIRST(Stmt)         = {message, service}
+FIRST(MsgStmt)      = {message} 
+FIRST(Members)      = {id, ε}
+FIRST(Member)       = {id}
+FIRST(ServiceStmt)  = {service}
+FIRST(Funcs)        = {id, ε}
+FIRST(Func)         = {id}
+FIRST(ArgList)      = {id, ε}
+FIRST(Args)         = {id}
+FIRST(Args')        = {Comma, ε}
+
+// FOLLOW集
+FOLLOW(Code)         = {$}
+FOLLOW(Extra)        = {$}              // FOLLOW(Code)
+FOLLOW(Stmt)         = {CRLF, $}        // FOLLOW(Code), FOLLOW(Extra)
+FOLLOW(MsgStmt)      = {CRLF, $}        // FOLLOW(Stmt)
+FOLLOW(Members)      = {RightBrace}
+FOLLOW(Member)       = {CRLF}           // FOLLOW(Members)
+FOLLOW(ServiceStmt)  = {CRLF, $}        // FOLLOW(Stmt)
+FOLLOW(Funcs)        = {RightBrace}
+FOLLOW(Func)         = {CRLF}           // FOLLOW(Funcs)
+FOLLOW(ArgList)      = {RightBracket}
+FOLLOW(Args)         = {RightBracket}   // FOLLOW(ArgList)
+FOLLOW(Args')        = {RightBracket}   // FOLLOW(Args)
+
+// SELECT集, 同左部的SELECT集不相交，符合LL(1)文法
+SELECT(1)       = {message, service}
+SELECT(2)       = {CRLF}
+SELECT(3)       = {CRLF}
+SELECT(4)       = {$}
+SELECT(5)       = {message}
+SELECT(6)       = {service}
+SELECT(7)       = {message}
+SELECT(8)       = {id}
+SELECT(9)       = {RightBrace}
+SELECT(10)      = {id}
+SELECT(11)      = {service}
+SELECT(12)      = {id}
+SELECT(13)      = {RightBrace}
+SELECT(14)      = {id}
+SELECT(15)      = {id}
+SELECT(16)      = {RightBracket}
+SELECT(17)      = {id}
+SELECT(18)      = {Comma}
+SELECT(19)      = {RightBracket}
