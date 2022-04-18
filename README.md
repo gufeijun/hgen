@@ -4,9 +4,9 @@
 
 搭配以下RPC库使用：
 
-+ Go：https://github.com/gufeijun/rpch-go。
-+ C：https://github.com/gufeijun/rpch-c。
-+ Node：https://github.com/gufeijun/rpch-node。
++ Go：https://github.com/gufeijun/rpch-go
++ C：https://github.com/gufeijun/rpch-c
++ Node：https://github.com/gufeijun/rpch-node
 
 # 介绍
 
