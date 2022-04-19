@@ -80,7 +80,7 @@ const _registerServiceTmpl = `
 {{ $name:=.Name -}}
 void register_{{.Name}}_service(server_t* svr) {
 	{{- range .Methods }}
-	server_register(svr, "{{$name}}.{{.MethodName}}", {{$name}}_{{.MethodName}}_handler);
+	server_register(svr, "{{$name}}.{{.Name}}", {{$name}}_{{.Name}}_handler);
 	{{- end }}
 }`
 
@@ -89,11 +89,11 @@ void {{.Name}}_init(struct {{.Name}}* data)
 {{- if and (eq (len .MessageMems) 0) (eq (len .StringMems) 0) }} {}
 {{- else }} {
 	{{- range .MessageMems}}
-	data->{{.MemName}} = malloc(sizeof(struct {{.MemType.TypeName}}));
-	{{.MemType.TypeName}}_init(data->{{.MemName}});
+	data->{{.Name}} = malloc(sizeof(struct {{.Type.Name}}));
+	{{.Type.Name}}_init(data->{{.Name}});
 	{{- end }}
 	{{- range .StringMems}}
-	data->{{.MemName}} = NULL;
+	data->{{.Name}} = NULL;
 	{{- end }}
 }
 {{- end }}
@@ -101,11 +101,11 @@ void {{.Name}}_destroy(struct {{.Name}}* data)
 {{- if and (eq (len .MessageMems) 0) (eq (len .StringMems) 0) }} {}
 {{- else }} {
 	{{- range .MessageMems}}
-	{{.MemType.TypeName}}_destroy(data->{{.MemName}});
-	free(data->{{.MemName}});
+	{{.Type.Name}}_destroy(data->{{.Name}});
+	free(data->{{.Name}});
 	{{- end }}
 	{{- range .StringMems}}
-	free(data->{{.MemName}});
+	free(data->{{.Name}});
 	{{- end }}
 }
 {{- end }}
@@ -134,19 +134,19 @@ cJSON* {{.TypeName}}_marshal(struct {{.TypeName}}* data, error_t* err) {
     if (!root) goto bad;
 	{{- $serverSide:= .ServerSide}}
 	{{- range .Message.Mems -}}
-	{{- if eq .MemType.TypeKind 2 }}
-    if (data->{{.MemName}} == NULL) {
-        if (cJSON_AddNullToObject(root, "{{.MemName}}") == NULL) goto bad;
+	{{- if eq .Type.Kind 2 }}
+    if (data->{{.Name}} == NULL) {
+        if (cJSON_AddNullToObject(root, "{{.Name}}") == NULL) goto bad;
     } else {
-		item = {{ .MemType.TypeName }}_marshal(data->{{.MemName}}, err);
+		item = {{ .Type.Name }}_marshal(data->{{.Name}}, err);
 		if (!err->null) goto bad;
-    	if (!cJSON_AddItemToObject(root, "{{ .MemName }}", item)) goto bad;
+    	if (!cJSON_AddItemToObject(root, "{{ .Name }}", item)) goto bad;
     }
-	{{- else if eq .MemType.TypeName "string" }}
-	if (data->{{.MemName}} == NULL) data->{{.MemName}} = {{if $serverSide}}strdup(""){{else}}""{{end}};
-    if (cJSON_AddStringToObject(root, "{{ .MemName }}", data->{{.MemName}}) == NULL) goto bad;
+	{{- else if eq .Type.Name "string" }}
+	if (data->{{.Name}} == NULL) data->{{.Name}} = {{if $serverSide}}strdup(""){{else}}""{{end}};
+    if (cJSON_AddStringToObject(root, "{{ .Name }}", data->{{.Name}}) == NULL) goto bad;
 	{{- else }}
-    if (cJSON_AddNumberToObject(root, "{{ .MemName }}", (double)data->{{.MemName}}) == NULL) goto bad;
+    if (cJSON_AddNumberToObject(root, "{{ .Name }}", (double)data->{{.Name}}) == NULL) goto bad;
 	{{- end }}
 	{{- end }}
 	return root;
@@ -166,25 +166,25 @@ void {{.TypeName}}_unmarshal(struct {{.TypeName}}* dst, char* data, error_t* err
     if (!root) goto bad;
 	{{- $map:=.IDL2CType -}}
 	{{ range .Message.Mems }}
-    item = cJSON_GetObjectItemCaseSensitive(root, "{{ .MemName }}");
-	{{- if eq .MemType.TypeKind 2 }}
+    item = cJSON_GetObjectItemCaseSensitive(root, "{{ .Name }}");
+	{{- if eq .Type.Kind 2 }}
     if (cJSON_IsNull(item))
-        dst->{{ .MemName }} = NULL;
+        dst->{{ .Name }} = NULL;
     else {
 		if (!item || !cJSON_IsObject(item)) goto bad;
     	data = cJSON_Print(item);
-		{{.MemType.TypeName}}_unmarshal(dst->{{.MemName}}, data, err);
+		{{.Type.Name}}_unmarshal(dst->{{.Name}}, data, err);
 		if (!err->null) goto bad;
     }
-	{{- else if eq .MemType.TypeName "string" }}
+	{{- else if eq .Type.Name "string" }}
 	if (!item || !cJSON_IsString(item)) goto bad;
-	dst->{{.MemName}} = strdup(cJSON_GetStringValue(item));
-	{{- else if or (eq .MemType.TypeName "float32") (eq .MemType.TypeName "float64")}}
+	dst->{{.Name}} = strdup(cJSON_GetStringValue(item));
+	{{- else if or (eq .Type.Name "float32") (eq .Type.Name "float64")}}
 	if (!item || !cJSON_IsNumber(item)) goto bad;
-	dst->{{.MemName}} = ({{index $map .MemType.TypeName}})item->valuedouble;
+	dst->{{.Name}} = ({{index $map .Type.Name}})item->valuedouble;
 	{{- else }}
 	if (!item || !cJSON_IsNumber(item)) goto bad;
-	dst->{{.MemName}} = ({{index $map .MemType.TypeName}})item->valueint;
+	dst->{{.Name}} = ({{index $map .Type.Name}})item->valueint;
 	{{- end }}
 	{{- end }}
     cJSON_Delete(root);
