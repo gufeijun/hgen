@@ -1,4 +1,4 @@
-// 产生式见文法：bnt.txt
+// 见文法：bnf.txt
 package parse
 
 import (
@@ -6,12 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 )
 
 type Parser struct {
 	filepath string
 	lexer    *lexer
 	token    *Token
+
+	tmpToken *Token
 
 	Infos *Symbols
 }
@@ -49,7 +52,7 @@ func (p *Parser) initLexer() error {
 		return err
 	}
 	if size := info.Size(); size >= (10 << 20) {
-		return fmt.Errorf("[ERROR] size of %s cannot exceed 10MB!", p.filepath)
+		return fmt.Errorf("# size of %s cannot exceed 10MB!", p.filepath)
 	}
 	data, err := ioutil.ReadFile(p.filepath)
 	if err != nil {
@@ -61,14 +64,6 @@ func (p *Parser) initLexer() error {
 
 func (p *Parser) nextToken() {
 	p.lexer.getNextToken()
-}
-
-// TODO delete
-func (p *Parser) Test() *lexer {
-	if err := p.initLexer(); err != nil {
-		panic(err)
-	}
-	return p.lexer
 }
 
 func (p *Parser) Parse() error {
@@ -100,7 +95,7 @@ func (p *Parser) procCode() {
 		// 产生式2
 		p.procExtra()
 	default:
-		p.logError(fmt.Sprintf("expect message or service, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("message|service", "")
 	}
 }
 
@@ -116,7 +111,7 @@ func (p *Parser) procStmt() {
 		srv, token := p.procServiceStmt()
 		p.saveService(srv, token)
 	default:
-		p.logError(fmt.Sprintf("expect message or service, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("message|service", "")
 	}
 }
 
@@ -132,7 +127,7 @@ func (p *Parser) procExtra() {
 		// 产生式4
 		return
 	default:
-		p.logError(fmt.Sprintf("expect \"\\n\" after \"}\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1(`\n`, "}")
 	}
 }
 
@@ -141,35 +136,39 @@ func (p *Parser) procMsgStmt() (*Message, Token) {
 	var token Token
 	// 产生式7
 	if p.token.Kind != T_MESSAGE {
-		p.logError(fmt.Sprintf("expect message, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1(`\n`, "")
 	}
 	p.nextToken()
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("unrecognized identity \"%s\" after message", p.token.content(p.lexer)), *p.token)
+		p.Panic1("message name", "message")
 	}
 	msg := &Message{Name: p.token.Value}
 	token = *p.token
-	tmp := *p.token
+	tmp1 := *p.token
+	p.tmpToken = &tmp1 // 暂存此token，方便后面的错误处理
 	p.nextToken()
 	if p.token.Kind != T_LEFTBRACE {
-		p.logError(fmt.Sprintf("expect \"{\" after \"%s\"", msg.Name), tmp)
+		p.Panic2("{", msg.Name, tmp1)
 	}
-	tmp = *p.token
+	tmp2 := *p.token
 	p.nextToken()
 	if p.token.Kind != T_CRLF {
-		p.logError(fmt.Sprintf("expect \"\\n\" after \"{\", but got \"%s\"", p.token.content(p.lexer)), tmp)
+		if p.token.Kind == T_RIGHTBRACE {
+			p.logError(fmt.Sprintf("message \"%s\" should have at least one member", tmp1.Value), tmp1)
+		}
+		p.Panic2(`\n`, "{", tmp2)
 	}
 	p.nextToken()
 	member := p.procMember()
 	msg.Mems = append(msg.Mems, member)
 	if p.token.Kind != T_CRLF {
-		p.logError(fmt.Sprintf("expect \"\\n\" after \"%s\", but got \"%s\"", member.MemName, p.token.content(p.lexer)), *p.token)
+		p.Panic1(`\n`, member.MemName)
 	}
 	p.nextToken()
 	mems := p.procMembers()
 	msg.Mems = append(msg.Mems, mems...)
 	if p.token.Kind != T_RIGHTBRACE {
-		p.logError(fmt.Sprintf("expect \"}\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1(`}`, "")
 	}
 	p.nextToken()
 
@@ -181,33 +180,37 @@ func (p *Parser) procServiceStmt() (*Service, Token) {
 	var token Token
 	// 产生式11
 	if p.token.Kind != T_SERVICE {
-		p.logError(fmt.Sprintf("expect \"service\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("service", "")
 	}
 	p.nextToken()
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity after service, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("service name", "service")
 	}
 	token = *p.token
+	p.tmpToken = &token
 	srv := &Service{Name: p.token.Value}
 	p.nextToken()
 	if p.token.Kind != T_LEFTBRACE {
-		p.logError(fmt.Sprintf("expect \"{\" after service, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("{", srv.Name)
 	}
 	p.nextToken()
 	if p.token.Kind != T_CRLF {
-		p.logError(fmt.Sprintf("expect \"\\n\" after \"{\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		if p.token.Kind == T_RIGHTBRACE {
+			p.logError(fmt.Sprintf("service \"%s\" should have at least one method", token.Value), token)
+		}
+		p.Panic1(`\n`, "{")
 	}
 	p.nextToken()
 	method := p.procFunc()
 	srv.Methods = append(srv.Methods, method)
 	if p.token.Kind != T_CRLF {
-		p.logError(fmt.Sprintf("expect \"\\n\" after \")\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1(`\n`, ")")
 	}
 	p.nextToken()
 	methods := p.procFuncs()
 	srv.Methods = append(srv.Methods, methods...)
 	if p.token.Kind != T_RIGHTBRACE {
-		p.logError(fmt.Sprintf("expect \"}\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("}", "")
 	}
 	for _, method := range srv.Methods {
 		method.Service = srv
@@ -225,7 +228,7 @@ func (p *Parser) procMembers() []*Member {
 		mem := p.procMember()
 		members = append(members, mem)
 		if p.token.Kind != T_CRLF {
-			p.logError(fmt.Sprintf("expect \"\\n\" after \"%s\", but got \"%s\"", mem.MemName, p.token.content(p.lexer)), *p.token)
+			p.Panic1(`\n`, mem.MemName)
 		}
 		p.nextToken()
 		mems := p.procMembers()
@@ -234,7 +237,7 @@ func (p *Parser) procMembers() []*Member {
 		// 产生式9
 		return nil
 	default:
-		p.logError(fmt.Sprintf("expect \"}\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("}", "")
 	}
 	return members
 }
@@ -243,12 +246,12 @@ func (p *Parser) procMembers() []*Member {
 func (p *Parser) procMember() *Member {
 	// 产生式10
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.logError(fmt.Sprintf("message \"%s\" should have at least one member", p.tmpToken.Value), *p.tmpToken)
 	}
 	t := newType(p.token.Value)
 	p.nextToken()
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity after \"%s\", but got \"%s\"", t.Name, p.token.content(p.lexer)), *p.token)
+		p.Panic1("member name", t.Name)
 	}
 	name := p.token.Value
 	p.nextToken()
@@ -267,7 +270,7 @@ func (p *Parser) procFuncs() []*Method {
 		method := p.procFunc()
 		methods = append(methods, method)
 		if p.token.Kind != T_CRLF {
-			p.logError(fmt.Sprintf("expect \"\\n\" after \")\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+			p.Panic1(`\n`, ")")
 		}
 		p.nextToken()
 		ms := p.procFuncs()
@@ -276,7 +279,7 @@ func (p *Parser) procFuncs() []*Method {
 		// 产生式13
 		return nil
 	default:
-		p.logError(fmt.Sprintf("expect \"}\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("}", "")
 	}
 	return methods
 }
@@ -286,22 +289,22 @@ func (p *Parser) procFunc() *Method {
 	method := new(Method)
 	// 产生式14
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity, but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.logError(fmt.Sprintf("service \"%s\" should have at least one method", p.tmpToken.Value), *p.tmpToken)
 	}
 	method.RetType = newType(p.token.Value)
 	p.nextToken()
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity after \"%s\", but got \"%s\"", method.RetType.Name, p.token.content(p.lexer)), *p.token)
+		p.Panic1("function name", method.RetType.Name)
 	}
 	method.Name = p.token.Value
 	p.nextToken()
 	if p.token.Kind != T_LEFTBRACKET {
-		p.logError(fmt.Sprintf("expect \"(\" after \"%s\", but got \"%s\"", method.Name, p.token.content(p.lexer)), *p.token)
+		p.Panic1("(", method.Name)
 	}
 	p.nextToken()
 	method.ReqTypes = p.procArgList()
 	if p.token.Kind != T_RIGHTBRACKET {
-		p.logError(fmt.Sprintf("expect \")\" after \"%s\", but got \"%s\"", method.ReqTypes[len(method.ReqTypes)-1].Name, p.token.content(p.lexer)), *p.token)
+		p.Panic1(")", method.ReqTypes[len(method.ReqTypes)-1].Name)
 	}
 	p.nextToken()
 	return method
@@ -317,7 +320,7 @@ func (p *Parser) procArgList() []*Type {
 		// 产生式16
 		return nil
 	default:
-		p.logError(fmt.Sprintf("expect identity or \")\" after \"(\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("type or )", "(")
 	}
 	return nil
 }
@@ -327,7 +330,7 @@ func (p *Parser) procArgs() []*Type {
 	var args []*Type
 	// 产生式17
 	if p.token.Kind != T_ID {
-		p.logError(fmt.Sprintf("expect identity after \"(\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1("type", "(")
 	}
 	args = append(args, newType(p.token.Value))
 
@@ -344,7 +347,7 @@ func (p *Parser) procArgs_() []*Type {
 		// 产生式18
 		p.nextToken()
 		if p.token.Kind != T_ID {
-			p.logError(fmt.Sprintf("expect type after \",\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+			p.Panic1("type", ",")
 		}
 		args = append(args, newType(p.token.Value))
 		p.nextToken()
@@ -353,7 +356,7 @@ func (p *Parser) procArgs_() []*Type {
 		// 产生式19
 		return nil
 	default:
-		p.logError(fmt.Sprintf("expect \",\" or \")\", but got \"%s\"", p.token.content(p.lexer)), *p.token)
+		p.Panic1(", or )", "")
 	}
 	return args
 }
@@ -361,13 +364,36 @@ func (p *Parser) procArgs_() []*Type {
 func (p *Parser) logError(msg string, token Token) {
 	fmt.Printf("%s:\n", msg)
 	line := p.lexer.lines[token.Line]
+	lineNum := p.lexer.locationMap[token.Line] + 1
+	filepath := path.Base(p.filepath)
 	if token.Kind == T_CRLF {
-		fmt.Printf("[%s:%d] %s\n", path.Base(p.filepath), p.lexer.locationMap[token.Line]+1, line)
+		fmt.Printf("[%s:%d] %s\n", filepath, lineNum, line)
 	} else {
-		fmt.Printf("[%s:%d:%d] %s", p.filepath, p.lexer.locationMap[token.Line]+1, token.Kth, line[:token.Kth])
-		fmt.Printf("\033[1;31;40m%s\033[0m", line[token.Kth:token.Kth+token.Length])
+		fmt.Printf("[%s:%d:%d] %s", filepath, lineNum, token.Kth, line[:token.Kth])
+		// 标红错误的token
+		fmt.Printf("\033[1;37;41m%s\033[0m", line[token.Kth:token.Kth+token.Length])
 		fmt.Printf("%s\n", line[token.Kth+token.Length:])
 	}
 	fmt.Println("compile failed! ")
 	os.Exit(0)
+}
+
+func (p *Parser) Panic(expect, after, got string, token Token) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "expect \"%s\"", expect)
+	if len(after) != 0 {
+		fmt.Fprintf(&b, " after \"%s\", ", after)
+	} else {
+		fmt.Fprintf(&b, ", ")
+	}
+	fmt.Fprintf(&b, "but got \"%s\"", got)
+	p.logError(b.String(), token)
+}
+
+func (p *Parser) Panic1(expect, after string) {
+	p.Panic(expect, after, p.token.content(p.lexer), *p.token)
+}
+
+func (p *Parser) Panic2(expect, after string, token Token) {
+	p.Panic(expect, after, p.token.content(p.lexer), token)
 }

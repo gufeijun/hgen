@@ -195,7 +195,7 @@ end:
 
 func (l *lexer) logError() {
 	fmt.Printf("%dth line lexer failed: invalid character %c\n", l.curLine, l.curChar)
-	os.Exit(1)
+	os.Exit(0)
 }
 
 func isNumber(ch byte) bool {

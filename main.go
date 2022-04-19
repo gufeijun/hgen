@@ -48,37 +48,37 @@ func testInfos() {
 	}
 }
 
-func testTokens() {
-	parser := parse.NewParser("./test.gfj")
-	l := parser.Test()
-	for {
-		token := l.GetNextToken()
-		if token.Kind == parse.T_EOF {
-			break
-		}
-		switch token.Kind {
-		case parse.T_ID:
-			fmt.Printf("<ID,%s> %dth line, %d-%d", token.Value, token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_CRLF:
-			fmt.Printf("<\\n,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_COMMA:
-			fmt.Printf("<COMMA,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_MESSAGE:
-			fmt.Printf("<message,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_SERVICE:
-			fmt.Printf("<service,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_LEFTBRACE:
-			fmt.Printf("<{,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_RIGHTBRACE:
-			fmt.Printf("<},-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_LEFTBRACKET:
-			fmt.Printf("<(,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		case parse.T_RIGHTBRACKET:
-			fmt.Printf("<),-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
-		}
-		fmt.Println()
-	}
-}
+// func testTokens() {
+// 	parser := parse.NewParser("./test.gfj")
+// 	l := parser.Test()
+// 	for {
+// 		token := l.GetNextToken()
+// 		if token.Kind == parse.T_EOF {
+// 			break
+// 		}
+// 		switch token.Kind {
+// 		case parse.T_ID:
+// 			fmt.Printf("<ID,%s> %dth line, %d-%d", token.Value, token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_CRLF:
+// 			fmt.Printf("<\\n,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_COMMA:
+// 			fmt.Printf("<COMMA,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_MESSAGE:
+// 			fmt.Printf("<message,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_SERVICE:
+// 			fmt.Printf("<service,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_LEFTBRACE:
+// 			fmt.Printf("<{,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_RIGHTBRACE:
+// 			fmt.Printf("<},-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_LEFTBRACKET:
+// 			fmt.Printf("<(,-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		case parse.T_RIGHTBRACKET:
+// 			fmt.Printf("<),-> %dth line, %d-%d", token.Line, token.Kth, token.Kth+token.Length)
+// 		}
+// 		fmt.Println()
+// 	}
+// }
 
 func main() {
 	// testTokens()
