@@ -8,23 +8,17 @@ import (
 	"os"
 )
 
-// TODO 文件一行行处理和Token处理同步
+// 词法解析器
 type lexer struct {
-	srcCode  []byte
-	cursor   int
-	curChar  byte
-	curToken Token
-	curLine  int
-	curKth   int
+	srcCode  []byte // 源代码
+	cursor   int    // 当前解析到哪个字符
+	curChar  byte   // 当前字符
+	curToken Token  // 当前token
+	curLine  int    // 当前行
+	curKth   int    // 当前行的第几个字符
 
-	locationMap []int
-	lines       []string
-}
-
-// TODO delete
-func (l *lexer) GetNextToken() Token {
-	l.getNextToken()
-	return l.curToken
+	locationMap []int    // 预处理后代码行号到预处理前行号映射
+	lines       []string // 保存所有行
 }
 
 func newLexer(code []byte) (*lexer, error) {
@@ -44,8 +38,7 @@ func newLexer(code []byte) (*lexer, error) {
 	return l, nil
 }
 
-// 代码预处理
-// 去除注释和多余的换行
+// 代码预处理，去除注释和多余的换行
 func (l *lexer) preHandleCode() error {
 	buff := bufio.NewReader(bytes.NewBuffer(l.srcCode))
 	var writeTo bytes.Buffer
@@ -85,6 +78,7 @@ func (l *lexer) preHandleCode() error {
 	return nil
 }
 
+// 读取一行
 func readLine(buff *bufio.Reader) ([]byte, error) {
 	line, isPrefix, err := buff.ReadLine()
 	if err != nil {
@@ -105,6 +99,7 @@ func readLine(buff *bufio.Reader) ([]byte, error) {
 	return line, nil
 }
 
+// 该行是否为空行
 func emptyLine(line []byte) bool {
 	for i := 0; i < len(line); i++ {
 		if line[i] != ' ' && line[i] != '\t' {
@@ -114,6 +109,7 @@ func emptyLine(line []byte) bool {
 	return true
 }
 
+// 获取下一个token，保存在l.curToken中
 func (l *lexer) getNextToken() {
 	for l.curChar == 0 || l.curChar == ' ' || l.curChar == '\t' {
 		if l.cursor >= len(l.srcCode) {
@@ -124,6 +120,7 @@ func (l *lexer) getNextToken() {
 	}
 	// start:
 	ch := l.curChar
+	// 记录该token在该行的第几个字符
 	l.curToken.Kth = l.curKth
 	switch ch {
 	case '0':
@@ -164,7 +161,7 @@ func (l *lexer) getNextToken() {
 	// 		l.getNextChar()
 	// 	}
 	// 	goto start
-	default:
+	default: // 解析identity
 		if !isLetter_(ch) {
 			l.logError()
 		}
@@ -178,6 +175,7 @@ func (l *lexer) getNextToken() {
 			id += string(ch)
 		}
 		l.curToken.Length = len(id)
+		// message和service是关键字，特殊处理
 		if id == "message" {
 			l.curToken.Kind = T_MESSAGE
 		} else if id == "service" {
@@ -190,6 +188,7 @@ func (l *lexer) getNextToken() {
 	}
 	l.getNextChar()
 end:
+	// 记录该token的行号
 	l.curToken.Line = l.curLine
 }
 
