@@ -15,13 +15,14 @@ const (
 )
 
 type Token struct {
-	Kind   int
-	Value  string
-	Line   int // token所在的文件行
-	Kth    int // 处于该行的第几个字符
-	Length int // 该token的长度
+	Kind   int    // token类型
+	Value  string // token的值
+	Line   int    // token所在的文件行
+	Kth    int    // 处于该行的第几个字符
+	Length int    // 该token的长度
 }
 
+// 获取token的原字符串
 func (t *Token) content(l *lexer) string {
 	if t.Kind == T_CRLF {
 		return "\\n"

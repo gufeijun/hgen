@@ -49,8 +49,8 @@ type Method struct {
 }
 
 type Member struct {
-	MemType *Type  // 成员的类型信息
-	MemName string // 成员名
+	Type *Type  // 成员的类型信息
+	Name string // 成员名
 }
 
 type Type struct {
@@ -62,10 +62,19 @@ func newType(name string) *Type {
 	t := &Type{Name: name}
 	if _, ok := BuiltinTypes[name]; !ok {
 		t.Kind = TypeKindMessage
-	} else if name == "stream" || name == "istream" || name == "ostream" {
+	} else if isStream(name) {
 		t.Kind = TypeKindStream
 	} else {
 		t.Kind = TypeKindNormal
 	}
 	return t
+}
+
+func isStream(name string) bool {
+	return name == "stream" || name == "istream" || name == "ostream"
+}
+
+func isBuiltin(name string) bool {
+	_, ok := BuiltinTypes[name]
+	return ok
 }

@@ -9,14 +9,15 @@ import (
 	"strings"
 )
 
+// 语法解析器
 type Parser struct {
-	filepath string
-	lexer    *lexer
-	token    *Token
+	filepath string // 待编译文件路径
+	lexer    *lexer // 词法解析器
+	token    *Token // 当前的token
 
-	tmpToken *Token
+	tmpToken *Token // 暂存的token，用于保存出现错误时的上下文
 
-	Infos *Symbols
+	Infos *Symbols // 语法树
 }
 
 func NewParser(filepath string) *Parser {
@@ -30,6 +31,7 @@ func NewParser(filepath string) *Parser {
 }
 
 func (p *Parser) saveService(srv *Service, token Token) {
+	// 不允许出现相同的service
 	if _, ok := p.Infos.Services[srv.Name]; ok {
 		p.logError(fmt.Sprintf("repeated service %s", srv.Name), token)
 	}
@@ -37,12 +39,14 @@ func (p *Parser) saveService(srv *Service, token Token) {
 }
 
 func (p *Parser) saveMessage(msg *Message, token Token) {
+	// 不允许出现相同的message
 	if _, ok := p.Infos.Messages[msg.Name]; ok {
 		p.logError(fmt.Sprintf("repeated message %s", msg.Name), token)
 	}
 	p.Infos.Messages[msg.Name] = msg
 }
 
+// 初始化词法解析器
 func (p *Parser) initLexer() error {
 	if p.lexer != nil {
 		return nil
@@ -51,13 +55,16 @@ func (p *Parser) initLexer() error {
 	if err != nil {
 		return err
 	}
+	// 输入文件不允许超过10MB
 	if size := info.Size(); size >= (10 << 20) {
 		return fmt.Errorf("# size of %s cannot exceed 10MB!", p.filepath)
 	}
+	// TODO 后续可使用边读取边产生token的方式
 	data, err := ioutil.ReadFile(p.filepath)
 	if err != nil {
 		return err
 	}
+	// 生成词法解析器
 	p.lexer, err = newLexer(data)
 	return err
 }
@@ -66,17 +73,22 @@ func (p *Parser) nextToken() {
 	p.lexer.getNextToken()
 }
 
+// 语法解析
 func (p *Parser) Parse() error {
+	// 初始化lexer
 	if err := p.initLexer(); err != nil {
 		return err
 	}
 	p.token = &p.lexer.curToken
+	// 获取第一个token
 	p.nextToken()
+	// 开启开始符号的过程
 	p.procCode()
 	if p.token.Kind != T_EOF {
 		return fmt.Errorf("syntax error: want eof at end")
 	}
-
+	// 语义检查
+	fixSymbols(p.Infos)
 	return nil
 }
 
@@ -162,7 +174,7 @@ func (p *Parser) procMsgStmt() (*Message, Token) {
 	member := p.procMember()
 	msg.Mems = append(msg.Mems, member)
 	if p.token.Kind != T_CRLF {
-		p.Panic1(`\n`, member.MemName)
+		p.Panic1(`\n`, member.Name)
 	}
 	p.nextToken()
 	mems := p.procMembers()
@@ -228,7 +240,7 @@ func (p *Parser) procMembers() []*Member {
 		mem := p.procMember()
 		members = append(members, mem)
 		if p.token.Kind != T_CRLF {
-			p.Panic1(`\n`, mem.MemName)
+			p.Panic1(`\n`, mem.Name)
 		}
 		p.nextToken()
 		mems := p.procMembers()
@@ -256,8 +268,8 @@ func (p *Parser) procMember() *Member {
 	name := p.token.Value
 	p.nextToken()
 	return &Member{
-		MemType: t,
-		MemName: name,
+		Type: t,
+		Name: name,
 	}
 }
 
@@ -370,7 +382,7 @@ func (p *Parser) logError(msg string, token Token) {
 		fmt.Printf("[%s:%d] %s\n", filepath, lineNum, line)
 	} else {
 		fmt.Printf("[%s:%d:%d] %s", filepath, lineNum, token.Kth, line[:token.Kth])
-		// 标红错误的token
+		// 高亮非预期token
 		fmt.Printf("\033[1;37;41m%s\033[0m", line[token.Kth:token.Kth+token.Length])
 		fmt.Printf("%s\n", line[token.Kth+token.Length:])
 	}
