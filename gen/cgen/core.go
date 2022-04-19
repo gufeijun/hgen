@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"gufeijun/hustgen/config"
 	"gufeijun/hustgen/gen/utils"
-	"gufeijun/hustgen/service"
+	"gufeijun/hustgen/parse"
 	"io"
 	"path"
 	"strings"
 	"text/template"
 )
 
-func Gen(conf *config.ComplileConfig) error {
+var infos *parse.Symbols
+
+func Gen(_infos *parse.Symbols, conf *config.ComplileConfig) error {
+	infos = _infos
 	if err := genServerHeaderFile(conf); err != nil {
 		return err
 	}
@@ -102,7 +105,7 @@ func genClientSourceFile(conf *config.ComplileConfig) error {
 }
 
 func genStructCloneC(te *utils.TmplExec) {
-	for _, t := range service.GlobalAsset.Messages {
+	for _, t := range infos.Messages {
 		data := &struct {
 			Name        string
 			Assignments []string
@@ -115,18 +118,18 @@ func genStructCloneC(te *utils.TmplExec) {
 }
 
 func genStructCloneH(te *utils.TmplExec) {
-	for _, t := range service.GlobalAsset.Messages {
+	for _, t := range infos.Messages {
 		te.Execute(structCloneHTmpl, t.Name)
 	}
 }
 
 func genStructDelete(te *utils.TmplExec) {
 	var data []string
-	utils.TraverseRespArgs(func(t *service.Type) bool {
-		if t.TypeKind != service.TypeKindMessage {
+	utils.TraverseRespArgs(infos, func(t *parse.Type) bool {
+		if t.Kind != parse.TypeKindMessage {
 			return false
 		}
-		data = append(data, t.TypeName)
+		data = append(data, t.Name)
 		return false
 	})
 	te.Execute(structDeleteTmpl, data)
@@ -134,11 +137,11 @@ func genStructDelete(te *utils.TmplExec) {
 
 func genStructCreate(te *utils.TmplExec) {
 	var data []string
-	utils.TraverseRespArgs(func(t *service.Type) bool {
-		if t.TypeKind != service.TypeKindMessage {
+	utils.TraverseRespArgs(infos, func(t *parse.Type) bool {
+		if t.Kind != parse.TypeKindMessage {
 			return false
 		}
-		data = append(data, t.TypeName)
+		data = append(data, t.Name)
 		return false
 	})
 	te.Execute(structCreateTmpl, data)
@@ -155,7 +158,7 @@ func genCallFuncs(te *utils.TmplExec) {
 		RespCheck     string
 		RespUnmarshal string
 	}
-	utils.TraverseMethod(func(method *service.Method) bool {
+	utils.TraverseMethod(infos, func(method *parse.Method) bool {
 		data := &Data{
 			FuncSignature: buildCallFuncSignature(method),
 			RespDefine:    buildRespArgDefine(method),
@@ -163,11 +166,11 @@ func genCallFuncs(te *utils.TmplExec) {
 			ArgInits:      buildCallArgInits(method),
 			RespCheck:     buildRespCheck(method),
 			RespUnmarshal: buildRespUnmarshal(method),
-			HasRtn:        method.RetType.TypeName != "void",
+			HasRtn:        method.RetType.Name != "void",
 		}
 		var i int
 		for _, t := range method.ReqTypes {
-			if t.TypeKind == service.TypeKindMessage {
+			if t.Kind == parse.TypeKindMessage {
 				i++
 				data.MessageArgs = append(data.MessageArgs, fmt.Sprintf("node%d", i))
 			}
@@ -178,17 +181,17 @@ func genCallFuncs(te *utils.TmplExec) {
 }
 
 func genDestroyResponse(te *utils.TmplExec) {
-	utils.TraverseRespArgs(func(t *service.Type) bool {
-		if t.TypeKind == service.TypeKindNormal {
+	utils.TraverseRespArgs(infos, func(t *parse.Type) bool {
+		if t.Kind == parse.TypeKindNormal {
 			return false
 		}
-		fmt.Fprintf(te.W, "\nvoid %s_destroy(struct %s*);", t.TypeName, t.TypeName)
+		fmt.Fprintf(te.W, "\nvoid %s_destroy(struct %s*);", t.Name, t.Name)
 		return false
 	})
 }
 
 func genClientMethod(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		var methods []string
 		for _, method := range s.Methods {
 			methods = append(methods, buildMethod(method, "client_t*"))
@@ -210,11 +213,11 @@ func genHandlers(te *utils.TmplExec) {
 		Resp          string //返回值序列化
 		End           string //资源释放
 	}
-	utils.TraverseMethod(func(method *service.Method) (end bool) {
+	utils.TraverseMethod(infos, func(method *parse.Method) (end bool) {
 		data := new(Data)
-		data.NoResp = method.RetType.TypeName == "void"
-		data.MessageResp = method.RetType.TypeKind == service.TypeKindMessage
-		data.FuncName = fmt.Sprintf("%s_%s", method.Service.Name, method.MethodName)
+		data.NoResp = method.RetType.Name == "void"
+		data.MessageResp = method.RetType.Kind == parse.TypeKindMessage
+		data.FuncName = fmt.Sprintf("%s_%s", method.Service.Name, method.Name)
 		data.Defines = buildArgDefines(method)
 		data.ArgChecks = buildArgChecks(method)
 		data.ArgInits = buildArgInits(method)
@@ -228,16 +231,16 @@ func genHandlers(te *utils.TmplExec) {
 }
 
 func common(te *utils.TmplExec, tmpl *template.Template, serverSide bool) {
-	for _, message := range service.GlobalAsset.Messages {
+	for _, message := range infos.Messages {
 		data := &struct {
 			TypeName   string
-			Message    *service.Message
+			Message    *parse.Message
 			MessageMem bool
 			IDL2CType  map[string]string
 			ServerSide bool
 		}{TypeName: message.Name, Message: message, IDL2CType: IDLtoCType, ServerSide: serverSide}
 		for _, mem := range message.Mems {
-			if mem.MemType.TypeKind == service.TypeKindMessage {
+			if mem.Type.Kind == parse.TypeKindMessage {
 				data.MessageMem = true
 				break
 			}
@@ -247,7 +250,7 @@ func common(te *utils.TmplExec, tmpl *template.Template, serverSide bool) {
 }
 
 func genUnmarshalFunc(te *utils.TmplExec) {
-	for _, message := range service.GlobalAsset.Messages {
+	for _, message := range infos.Messages {
 		fmt.Fprintf(te.W, "static void %s_unmarshal(struct %s* dst, char* data, error_t* err);\n",
 			message.Name, message.Name)
 	}
@@ -256,7 +259,7 @@ func genUnmarshalFunc(te *utils.TmplExec) {
 
 func genMashalFunc(te *utils.TmplExec, serverSide bool) {
 	fmt.Fprint(te.W, "\n\n")
-	for _, message := range service.GlobalAsset.Messages {
+	for _, message := range infos.Messages {
 		fmt.Fprintf(te.W, "static cJSON* %s_marshal(struct %s* arg, error_t* err);\n",
 			message.Name, message.Name)
 	}
@@ -264,28 +267,28 @@ func genMashalFunc(te *utils.TmplExec, serverSide bool) {
 }
 
 func genRegisterService(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		te.Execute(registerServiceTmpl, s)
 	}
 }
 
 func genArgumentInitAndDestroy(te *utils.TmplExec, serverSide bool) {
 	te.W.Write([]byte{'\n'})
-	for _, m := range service.GlobalAsset.Messages {
+	for _, m := range infos.Messages {
 		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_init(struct %s*);\n", m.Name, m.Name)
 		fmt.Fprintf(te.W, "static inline __attribute__((always_inline)) void %s_destroy(struct %s*);\n", m.Name, m.Name)
 	}
 
-	for _, m := range service.GlobalAsset.Messages {
+	for _, m := range infos.Messages {
 		data := &struct {
 			ServerSide  bool
 			Name        string
-			MessageMems []*service.Member
-			StringMems  []*service.Member
+			MessageMems []*parse.Member
+			StringMems  []*parse.Member
 		}{Name: m.Name, ServerSide: serverSide}
 		for _, mem := range m.Mems {
-			if mem.MemType.TypeKind != service.TypeKindMessage {
-				if mem.MemType.TypeName == "string" {
+			if mem.Type.Kind != parse.TypeKindMessage {
+				if mem.Type.Name == "string" {
 					data.StringMems = append(data.StringMems, mem)
 				}
 				continue
@@ -309,7 +312,7 @@ func genSourceFileIncludes(te *utils.TmplExec, stdlib []string, includes []strin
 }
 
 func genServiceMethod(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		data := &struct {
 			ServiceName string
 			Methods     []string
@@ -322,8 +325,8 @@ func genServiceMethod(te *utils.TmplExec) {
 }
 
 func genStructs(te *utils.TmplExec) {
-	te.Execute(structStateTmpl, service.GlobalAsset.Messages)
-	for _, message := range service.GlobalAsset.Messages {
+	te.Execute(structStateTmpl, infos.Messages)
+	for _, message := range infos.Messages {
 		s := &struct {
 			Name    string
 			Members []string
@@ -331,7 +334,7 @@ func genStructs(te *utils.TmplExec) {
 		s.Name = message.Name
 		s.Members = make([]string, len(message.Mems))
 		for i, mem := range message.Mems {
-			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.MemType, true), mem.MemName)
+			s.Members[i] = fmt.Sprintf("%s %s", toClangType(mem.Type, true), mem.Name)
 		}
 		te.Execute(structTmpl, s)
 	}

@@ -7,33 +7,36 @@ import (
 	"gufeijun/hustgen/gen/cgen"
 	"gufeijun/hustgen/gen/gogen"
 	"gufeijun/hustgen/gen/nodegen"
+	"gufeijun/hustgen/parse"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type Generator struct {
-	langs map[string]func(*config.ComplileConfig) error
+	infos          *parse.Symbols
+	langGenerators map[string]func(*parse.Symbols, *config.ComplileConfig) error
 }
 
 func (g *Generator) langHelp(lang string) error {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("do not support language: %s\n", lang))
 	builder.WriteString("supported langs: ")
-	for key, _ := range g.langs {
-		builder.WriteString(key)
+	for lang, _ := range g.langGenerators {
+		builder.WriteString(lang)
 		builder.WriteByte(' ')
 	}
 	return errors.New(builder.String())
 }
 
-func NewGenerator() *Generator {
+func NewGenerator(infos *parse.Symbols) *Generator {
 	return &Generator{
-		langs: map[string]func(*config.ComplileConfig) error{
+		langGenerators: map[string]func(*parse.Symbols, *config.ComplileConfig) error{
 			"c":    cgen.Gen,
 			"go":   gogen.Gen,
 			"node": nodegen.Gen,
 		},
+		infos: infos,
 	}
 }
 
@@ -43,12 +46,12 @@ func (g *Generator) Gen(config *config.ComplileConfig) error {
 	if err != nil {
 		return err
 	}
-	f, ok := g.langs[config.TargetLang]
+	f, ok := g.langGenerators[config.TargetLang]
 	if !ok {
 		return g.langHelp(config.TargetLang)
 	}
 	if err := os.MkdirAll(config.OutDir, 0777); err != nil {
 		return err
 	}
-	return f(config)
+	return f(g.infos, config)
 }

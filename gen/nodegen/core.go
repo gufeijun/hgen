@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"gufeijun/hustgen/config"
 	"gufeijun/hustgen/gen/utils"
-	"gufeijun/hustgen/service"
+	"gufeijun/hustgen/parse"
 	"path"
 )
 
-func Gen(conf *config.ComplileConfig) error {
+var infos *parse.Symbols
+
+func Gen(_infos *parse.Symbols, conf *config.ComplileConfig) error {
+	infos = _infos
 	te, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.js"))
 	if err != nil {
 		return err
@@ -40,7 +43,7 @@ func genClientClass(te *utils.TmplExec) {
 		Service string
 		Methods []*clientMethod
 	}
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		data := &Data{
 			Service: s.Name,
 		}
@@ -52,15 +55,15 @@ func genClientClass(te *utils.TmplExec) {
 }
 
 func genExports(te *utils.TmplExec) {
-	services := make([]string, 0, len(service.GlobalAsset.Services))
-	for _, s := range service.GlobalAsset.Services {
+	services := make([]string, 0, len(infos.Services))
+	for _, s := range infos.Services {
 		services = append(services, s.Name)
 	}
 	te.Execute(moduleExportsTmpl, services)
 }
 
 func genRegisterFunc(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		data := &struct {
 			Name        string
 			MethodsName string
@@ -91,9 +94,9 @@ func genHandlers(te *utils.TmplExec) {
 		CallHandler   string
 		Resp          *respDesc
 	}
-	utils.TraverseMethod(func(method *service.Method) bool {
+	utils.TraverseMethod(infos, func(method *parse.Method) bool {
 		data := &Data{
-			FuncName:      fmt.Sprintf("%s%sHandler", method.Service.Name, method.MethodName),
+			FuncName:      fmt.Sprintf("%s%sHandler", method.Service.Name, method.Name),
 			ArgCnt:        len(method.ReqTypes),
 			Checks:        buildChecks(method),
 			UnmarshalArgs: buildUnmarshalArgs(method),
@@ -111,7 +114,7 @@ type methodDesc struct {
 }
 
 func genServiceInterfaces(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		data := &struct {
 			Name    string
 			Methods []*methodDesc

@@ -3,7 +3,7 @@ package nodegen
 import (
 	"fmt"
 	"gufeijun/hustgen/gen/utils"
-	"gufeijun/hustgen/service"
+	"gufeijun/hustgen/parse"
 	"strings"
 )
 
@@ -33,22 +33,22 @@ var marshalMap = map[string]string{
 	"float64": "writeDoubleLE",
 }
 
-func buildNodeMethod(method *service.Method) *methodDesc {
+func buildNodeMethod(method *parse.Method) *methodDesc {
 	var desc strings.Builder
 	var signature strings.Builder
-	fmt.Fprintf(&signature, "%s(", method.MethodName)
+	fmt.Fprintf(&signature, "%s(", method.Name)
 	for i, t := range method.ReqTypes {
-		if t.TypeName == "void" {
+		if t.Name == "void" {
 			break
 		}
 		fmt.Fprintf(&signature, "arg%d", i+1)
 		if i != len(method.ReqTypes)-1 {
 			signature.WriteString(", ")
 		}
-		fmt.Fprintf(&desc, "\n\t// arg%d: %s", i+1, t.TypeName)
+		fmt.Fprintf(&desc, "\n\t// arg%d: %s", i+1, t.Name)
 	}
 	signature.WriteByte(')')
-	if name := method.RetType.TypeName; name != "void" {
+	if name := method.RetType.Name; name != "void" {
 		fmt.Fprintf(&desc, "\n\t// ret:  %s", name)
 	}
 	return &methodDesc{
@@ -57,12 +57,12 @@ func buildNodeMethod(method *service.Method) *methodDesc {
 	}
 }
 
-func buildMethodsName(s *service.Service) (string, []string) {
+func buildMethodsName(s *parse.Service) (string, []string) {
 	var builder strings.Builder
 	var methods []string
 	for i, method := range s.Methods {
-		fmt.Fprintf(&builder, `"%s"`, method.MethodName)
-		methods = append(methods, method.MethodName)
+		fmt.Fprintf(&builder, `"%s"`, method.Name)
+		methods = append(methods, method.Name)
 		if i != len(s.Methods)-1 {
 			fmt.Fprint(&builder, ", ")
 		}
@@ -70,13 +70,13 @@ func buildMethodsName(s *service.Service) (string, []string) {
 	return builder.String(), methods
 }
 
-func buildChecks(method *service.Method) []string {
+func buildChecks(method *parse.Method) []string {
 	var builder strings.Builder
 	var checks []string
 	for i, t := range method.ReqTypes {
-		fmt.Fprintf(&builder, `if (args[%d].name != "%s"`, i, t.TypeName)
-		if t.TypeKind == service.TypeKindNormal && t.TypeName != "string" {
-			fmt.Fprintf(&builder, ` || args[%d].data.length != %d`, i, utils.TypeLength[t.TypeName])
+		fmt.Fprintf(&builder, `if (args[%d].name != "%s"`, i, t.Name)
+		if t.Kind == parse.TypeKindNormal && t.Name != "string" {
+			fmt.Fprintf(&builder, ` || args[%d].data.length != %d`, i, utils.TypeLength[t.Name])
 		}
 		fmt.Fprintf(&builder, `) throw "invalid type";`)
 		checks = append(checks, builder.String())
@@ -85,16 +85,16 @@ func buildChecks(method *service.Method) []string {
 	return checks
 }
 
-func buildUnmarshalArgs(method *service.Method) []string {
+func buildUnmarshalArgs(method *parse.Method) []string {
 	var data []string
 	var builder strings.Builder
 	for i, t := range method.ReqTypes {
-		if t.TypeName == "string" {
+		if t.Name == "string" {
 			fmt.Fprintf(&builder, `let arg%d = args[%d].data.toString();`, i, i)
-		} else if t.TypeKind == service.TypeKindMessage {
+		} else if t.Kind == parse.TypeKindMessage {
 			fmt.Fprintf(&builder, `let arg%d = JSON.parse(args[%d].data.toString());`, i, i)
 		} else {
-			fmt.Fprintf(&builder, `let arg%d = Number(args[%d].data.%s());`, i, i, unmarshalMap[t.TypeName])
+			fmt.Fprintf(&builder, `let arg%d = Number(args[%d].data.%s());`, i, i, unmarshalMap[t.Name])
 		}
 		data = append(data, builder.String())
 		builder.Reset()
@@ -102,7 +102,7 @@ func buildUnmarshalArgs(method *service.Method) []string {
 	return data
 }
 
-func buildCallHandler(method *service.Method) string {
+func buildCallHandler(method *parse.Method) string {
 	var args string
 	for i, _ := range method.ReqTypes {
 		args += fmt.Sprintf("arg%d", i)
@@ -110,111 +110,105 @@ func buildCallHandler(method *service.Method) string {
 			args += ", "
 		}
 	}
-	if method.RetType.TypeName == "void" {
-		return fmt.Sprintf("await impl.%s(%s);", method.MethodName, args)
+	if method.RetType.Name == "void" {
+		return fmt.Sprintf("await impl.%s(%s);", method.Name, args)
 	}
-	return fmt.Sprintf("let res = await impl.%s(%s);", method.MethodName, args)
+	return fmt.Sprintf("let res = await impl.%s(%s);", method.Name, args)
 }
 
-func buildRespDesc(method *service.Method) *respDesc {
+func buildRespDesc(method *parse.Method) *respDesc {
 	t := method.RetType
-	if t.TypeName == "void" {
+	if t.Name == "void" {
 		return &respDesc{
-			TypeKind: service.TypeKindNoRTN,
+			TypeKind: parse.TypeKindNoRTN,
 			Name:     "",
 			Data:     `""`,
 		}
 	}
-	if t.TypeName == "string" {
+	if t.Name == "string" {
 		return &respDesc{
-			TypeKind: service.TypeKindNormal,
-			Name:     t.TypeName,
+			TypeKind: parse.TypeKindNormal,
+			Name:     t.Name,
 			Data:     "res",
 		}
 	}
-	if t.TypeKind == service.TypeKindMessage {
+	if t.Kind == parse.TypeKindMessage {
 		return &respDesc{
-			TypeKind: service.TypeKindMessage,
-			Name:     t.TypeName,
+			TypeKind: parse.TypeKindMessage,
+			Name:     t.Name,
 			Data:     "JSON.stringify(res)",
 		}
 	}
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "let data = Buffer.alloc(%d);", utils.TypeLength[t.TypeName])
+	fmt.Fprintf(&builder, "let data = Buffer.alloc(%d);", utils.TypeLength[t.Name])
 	src := "res"
-	if t.TypeName == "int64" || t.TypeName == "uint64" {
+	if t.Name == "int64" || t.Name == "uint64" {
 		src = "BigInt(res)"
 	}
-	fmt.Fprintf(&builder, "\n\t\tdata.%s(%s);", marshalMap[t.TypeName], src)
+	fmt.Fprintf(&builder, "\n\t\tdata.%s(%s);", marshalMap[t.Name], src)
 	return &respDesc{
 		Prepare:  builder.String(),
-		TypeKind: service.TypeKindNormal,
-		Name:     t.TypeName,
+		TypeKind: parse.TypeKindNormal,
+		Name:     t.Name,
 		Data:     "data",
 	}
 }
 
-// type clientMethod struct {
-// 	MashalArgs   []string
-// 	RespCheck    string
-// 	UnmashalResp string
-// }
-
-func buildMarshalArg(i int, t *service.Type) string {
+func buildMarshalArg(i int, t *parse.Type) string {
 	const format = `req.args.push({
             typeKind: %d,
             name: '%s',
             data: %s,
         })`
-	if t.TypeName == "string" {
-		return fmt.Sprintf(format, t.TypeKind, t.TypeName, fmt.Sprintf("arg%d", i))
+	if t.Name == "string" {
+		return fmt.Sprintf(format, t.Kind, t.Name, fmt.Sprintf("arg%d", i))
 	}
-	if t.TypeKind == service.TypeKindMessage {
-		return fmt.Sprintf(format, t.TypeKind, t.TypeName, fmt.Sprintf("JSON.stringify(arg%d)", i))
+	if t.Kind == parse.TypeKindMessage {
+		return fmt.Sprintf(format, t.Kind, t.Name, fmt.Sprintf("JSON.stringify(arg%d)", i))
 	}
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "let buf%d = Buffer.alloc(%d)\n", i, utils.TypeLength[t.TypeName])
+	fmt.Fprintf(&builder, "let buf%d = Buffer.alloc(%d)\n", i, utils.TypeLength[t.Name])
 	src := fmt.Sprintf("arg%d", i)
-	if t.TypeName == "uint64" || t.TypeName == "int64" {
+	if t.Name == "uint64" || t.Name == "int64" {
 		src = fmt.Sprintf("BigInt(%s)", src)
 	}
-	fmt.Fprintf(&builder, "\t\tbuf%d.%s(%s)\n\t\t", i, marshalMap[t.TypeName], src)
-	fmt.Fprintf(&builder, format, t.TypeKind, t.TypeName, fmt.Sprintf("buf%d", i))
+	fmt.Fprintf(&builder, "\t\tbuf%d.%s(%s)\n\t\t", i, marshalMap[t.Name], src)
+	fmt.Fprintf(&builder, format, t.Kind, t.Name, fmt.Sprintf("buf%d", i))
 	return builder.String()
 }
 
-func buildRespCheck(method *service.Method) string {
+func buildRespCheck(method *parse.Method) string {
 	var builder strings.Builder
 	ret := method.RetType
-	if ret.TypeName != "void" {
-		fmt.Fprintf(&builder, `resp.name != "%s"`, ret.TypeName)
+	if ret.Name != "void" {
+		fmt.Fprintf(&builder, `resp.name != "%s"`, ret.Name)
 	}
-	if ret.TypeKind == service.TypeKindNormal && ret.TypeName != "string" {
-		if ret.TypeName != "void" {
+	if ret.Kind == parse.TypeKindNormal && ret.Name != "string" {
+		if ret.Name != "void" {
 			fmt.Fprintf(&builder, " || ")
 		}
-		fmt.Fprintf(&builder, `resp.dataLen != %d`, utils.TypeLength[ret.TypeName])
+		fmt.Fprintf(&builder, `resp.dataLen != %d`, utils.TypeLength[ret.Name])
 	}
 	return builder.String()
 }
 
-func buildUnmashalResp(t *service.Type) string {
-	if t.TypeName == "string" {
+func buildUnmashalResp(t *parse.Type) string {
+	if t.Name == "string" {
 		return "resolve(resp.data.toString());"
 	}
-	if t.TypeName == "void" {
+	if t.Name == "void" {
 		return "resolve();"
 	}
-	if t.TypeKind == service.TypeKindMessage {
+	if t.Kind == parse.TypeKindMessage {
 		return "resolve(JSON.parse(resp.data.toString()));"
 	}
-	return fmt.Sprintf(`resolve(Number(resp.data.%s()));`, unmarshalMap[t.TypeName])
+	return fmt.Sprintf(`resolve(Number(resp.data.%s()));`, unmarshalMap[t.Name])
 }
 
-func buildClientMethod(method *service.Method) *clientMethod {
+func buildClientMethod(method *parse.Method) *clientMethod {
 	data := new(clientMethod)
 	data.Service = method.Service.Name
-	data.Name = method.MethodName
+	data.Name = method.Name
 	data.MethodDesc = buildNodeMethod(method)
 	data.ArgCnt = len(method.ReqTypes)
 	for i, t := range method.ReqTypes {

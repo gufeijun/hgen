@@ -2,7 +2,7 @@ package gogen
 
 import (
 	"fmt"
-	"gufeijun/hustgen/service"
+	"gufeijun/hustgen/parse"
 	"strings"
 )
 
@@ -18,37 +18,37 @@ var toGlangMap2 = map[string]string{
 	"stream":  "io.ReadWriteCloser",
 }
 
-func buildCallArgs(reqTypes []*service.Type) (callArgs []*CallArg) {
+func buildCallArgs(reqTypes []*parse.Type) (callArgs []*CallArg) {
 	for i, t := range reqTypes {
 		callArgs = append(callArgs, &CallArg{
-			TypeKind: t.TypeKind,
-			TypeName: t.TypeName,
+			TypeKind: t.Kind,
+			TypeName: t.Name,
 			Data:     fmt.Sprintf("arg%d", i+1),
 		})
 	}
 	return
 }
 
-func buildReturn(retType *service.Type) string {
-	if retType.TypeName == "void" {
+func buildReturn(retType *parse.Type) string {
+	if retType.Name == "void" {
 		return "return err"
 	}
-	if retType.TypeKind == service.TypeKindMessage {
+	if retType.Kind == parse.TypeKindMessage {
 		return fmt.Sprintf(`res = new(%s)
 	return res, json.Unmarshal(resp.([]byte), res)
-`, retType.TypeName)
+`, retType.Name)
 	}
 	return fmt.Sprintf("return resp.(%s),err", toGolangType(retType, true))
 }
 
-func buildResponseArg(retType *service.Type) string {
-	if retType.TypeName == "void" {
+func buildResponseArg(retType *parse.Type) string {
+	if retType.Name == "void" {
 		return "err error"
 	}
 	return fmt.Sprintf("res %s, err error", toGolangType(retType, true))
 }
 
-func buildRequestArgs(reqTypes []*service.Type) string {
+func buildRequestArgs(reqTypes []*parse.Type) string {
 	var builder strings.Builder
 	types := toGolangTypes(reqTypes, false)
 	for i, t := range types {
@@ -60,10 +60,10 @@ func buildRequestArgs(reqTypes []*service.Type) string {
 	return builder.String()
 }
 
-func toGolangMethod(m *service.Method) (method string) {
+func toGolangMethod(m *parse.Method) (method string) {
 	var builder strings.Builder
-	types := toGolangTypes(append([]*service.Type{m.RetType}, m.ReqTypes...), false)
-	fmt.Fprintf(&builder, "%s(", m.MethodName)
+	types := toGolangTypes(append([]*parse.Type{m.RetType}, m.ReqTypes...), false)
+	fmt.Fprintf(&builder, "%s(", m.Name)
 	if len(types) != 1 {
 		for i := 1; i < len(types); i++ {
 			if i != 1 {
@@ -75,7 +75,7 @@ func toGolangMethod(m *service.Method) (method string) {
 	builder.WriteString(") ")
 	if types[0] == "void" {
 		builder.WriteString("error")
-	} else if m.RetType.TypeKind == service.TypeKindStream {
+	} else if m.RetType.Kind == parse.TypeKindStream {
 		fmt.Fprintf(&builder, "(stream %s, onFinish func(), err error)", types[0])
 	} else {
 		fmt.Fprintf(&builder, "(%s, error)", types[0])
@@ -83,7 +83,7 @@ func toGolangMethod(m *service.Method) (method string) {
 	return builder.String()
 }
 
-func toGolangTypes(ts []*service.Type, closer bool) []string {
+func toGolangTypes(ts []*parse.Type, closer bool) []string {
 	var types []string
 	for _, t := range ts {
 		types = append(types, toGolangType(t, closer))
@@ -91,17 +91,17 @@ func toGolangTypes(ts []*service.Type, closer bool) []string {
 	return types
 }
 
-func toGolangType(t *service.Type, closer bool) string {
-	switch t.TypeKind {
-	case service.TypeKindNormal:
-		return t.TypeName
-	case service.TypeKindMessage:
-		return "*" + t.TypeName
-	case service.TypeKindStream:
+func toGolangType(t *parse.Type, closer bool) string {
+	switch t.Kind {
+	case parse.TypeKindNormal:
+		return t.Name
+	case parse.TypeKindMessage:
+		return "*" + t.Name
+	case parse.TypeKindStream:
 		if closer {
-			return toGlangMap2[t.TypeName]
+			return toGlangMap2[t.Name]
 		}
-		return toGlangMap1[t.TypeName]
+		return toGlangMap1[t.Name]
 	default:
 		return ""
 	}

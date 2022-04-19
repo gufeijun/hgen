@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"gufeijun/hustgen/config"
 	"gufeijun/hustgen/gen/utils"
-	"gufeijun/hustgen/service"
+	"gufeijun/hustgen/parse"
 	"io"
 	"path"
 )
@@ -16,7 +16,10 @@ const (
 	JSON = `"encoding/json"`
 )
 
-func Gen(conf *config.ComplileConfig) error {
+var infos *parse.Symbols
+
+func Gen(_infos *parse.Symbols, conf *config.ComplileConfig) error {
+	infos = _infos
 	te, err := utils.NewTmplExec(conf, utils.GenFilePath(conf.SrcIDL, conf.OutDir, ".rpch.go"))
 	if err != nil {
 		return err
@@ -51,7 +54,7 @@ func genStatement(te *utils.TmplExec) {
 }
 
 func genClientMethods(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		for _, method := range s.Methods {
 			data := &struct {
 				ServiceName string
@@ -62,7 +65,7 @@ func genClientMethods(te *utils.TmplExec) {
 				CallArgs    []*CallArg
 			}{
 				ServiceName: s.Name,
-				MethodName:  method.MethodName,
+				MethodName:  method.Name,
 				RequestArg:  buildRequestArgs(method.ReqTypes),
 				ResponseArg: buildResponseArg(method.RetType),
 				Return:      buildReturn(method.RetType),
@@ -74,13 +77,13 @@ func genClientMethods(te *utils.TmplExec) {
 }
 
 func genClientStruct(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		te.Execute(clientStructTmpl, s.Name)
 	}
 }
 
 func genInit(te *utils.TmplExec) {
-	messages := service.GlobalAsset.Messages
+	messages := infos.Messages
 	if len(messages) == 0 {
 		return
 	}
@@ -96,14 +99,14 @@ func genServiceRegisterFunc(te *utils.TmplExec) {
 		MethodName  string
 		RetTypeName string
 	}
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		var descs []*MethodDesc
 		for _, method := range s.Methods {
-			tn := method.RetType.TypeName
+			tn := method.RetType.Name
 			if tn == "void" {
 				tn = ""
 			}
-			descs = append(descs, &MethodDesc{MethodName: method.MethodName, RetTypeName: tn})
+			descs = append(descs, &MethodDesc{MethodName: method.Name, RetTypeName: tn})
 		}
 		data := &struct {
 			Name        string
@@ -117,7 +120,7 @@ func genServiceRegisterFunc(te *utils.TmplExec) {
 }
 
 func genServiceInterfaces(te *utils.TmplExec) {
-	for _, s := range service.GlobalAsset.Services {
+	for _, s := range infos.Services {
 		var methods []string
 		for _, method := range s.Methods {
 			methods = append(methods, toGolangMethod(method))
@@ -142,23 +145,23 @@ func genPackage(te *utils.TmplExec) {
 }
 
 func genMessages(te *utils.TmplExec) {
-	for _, message := range service.GlobalAsset.Messages {
+	for _, message := range infos.Messages {
 		te.Execute(structTmpl, message)
 	}
 }
 
 func genImports(te *utils.TmplExec) {
-	if len(service.GlobalAsset.Services) == 0 {
+	if len(infos.Services) == 0 {
 		return
 	}
 	var addIO bool
 	var addJson bool
-	utils.TraverseMethod(func(method *service.Method) bool {
-		if method.RetType.TypeKind == service.TypeKindMessage {
+	utils.TraverseMethod(infos, func(method *parse.Method) bool {
+		if method.RetType.Kind == parse.TypeKindMessage {
 			addJson = true
 		}
 		for _, t := range append(method.ReqTypes, method.RetType) {
-			if t.TypeKind == service.TypeKindStream {
+			if t.Kind == parse.TypeKindStream {
 				addIO = true
 			}
 		}
