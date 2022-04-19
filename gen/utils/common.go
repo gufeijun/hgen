@@ -1,9 +1,9 @@
 package utils
 
-import "gufeijun/hustgen/service"
+import "gufeijun/hustgen/parse"
 
-func TraverseMethod(callback func(method *service.Method) (end bool)) {
-	for _, s := range service.GlobalAsset.Services {
+func TraverseMethod(infos *parse.Symbols, callback func(method *parse.Method) (end bool)) {
+	for _, s := range infos.Services {
 		for _, method := range s.Methods {
 			if end := callback(method); end {
 				return
@@ -12,8 +12,8 @@ func TraverseMethod(callback func(method *service.Method) (end bool)) {
 	}
 }
 
-func TraverseReqArgs(callback func(t *service.Type) (end bool)) {
-	for _, s := range service.GlobalAsset.Services {
+func TraverseReqArgs(infos *parse.Symbols, callback func(t *parse.Type) (end bool)) {
+	for _, s := range infos.Services {
 		for _, method := range s.Methods {
 			for _, t := range method.ReqTypes {
 				if end := callback(t); end {
@@ -24,8 +24,8 @@ func TraverseReqArgs(callback func(t *service.Type) (end bool)) {
 	}
 }
 
-func TraverseRespArgs(callback func(t *service.Type) (end bool)) {
-	for _, s := range service.GlobalAsset.Services {
+func TraverseRespArgs(infos *parse.Symbols, callback func(t *parse.Type) (end bool)) {
+	for _, s := range infos.Services {
 		for _, method := range s.Methods {
 			if end := callback(method.RetType); end {
 				return
